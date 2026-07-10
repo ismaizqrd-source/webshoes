@@ -93,6 +93,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(255,255,255,
 .pbadge{position:absolute;top:9px;left:9px;font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:700;padding:3px 8px;background:#111;color:#fff}
 .pbadge.sale{background:var(--red);color:#fff}
 .pbadge.hot{background:#111;color:#fff}
+.pbadge.soldout{background:#999;color:#fff}
+.pcard.soldout .pimg img{opacity:.45}
 .pinfo{padding:11px 13px 15px}
 .pcat{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gray);margin-bottom:2px}
 .pname{font-size:13px;font-weight:500;line-height:1.3;margin-bottom:6px}
@@ -1034,9 +1036,11 @@ function renderReviews(productId){
 function cardHtml(p,i){
   const disc=p.compare_price&&p.compare_price>p.price;
   const pct=disc?Math.round((1-p.price/p.compare_price)*100):0;
-  const badge=disc?`<span class="pbadge sale">−${pct}%</span>`:i<10?`<span class="pbadge hot">Nuevo</span>`:'';
+  const soldOut = p.stock === 0;
+  const badge = soldOut ? `<span class="pbadge soldout">Agotado</span>`
+    : disc?`<span class="pbadge sale">−${pct}%</span>`:i<10?`<span class="pbadge hot">Nuevo</span>`:'';
   const old=disc?`<span class="old">${p.compare_price.toFixed(2)} €</span>`:'';
-  return `<div class="pcard" onclick="goProduct('${p.id}')" style="animation:fadeUp .5s ${(i%8)*.04}s both">
+  return `<div class="pcard${soldOut?' soldout':''}" onclick="goProduct('${p.id}')" style="animation:fadeUp .5s ${(i%8)*.04}s both">
     <div class="pimg"><img src="${p.image}" alt="${p.title}" loading="lazy">${badge}</div>
     <div class="pinfo"><p class="pcat">${p.brand}</p><h3 class="pname">${p.title}</h3><div class="ppr"><span class="cur">${p.price.toFixed(2)} €</span>${old}</div></div>
   </div>`;
