@@ -46,6 +46,7 @@ export async function onRequestPost(context) {
   params.set('success_url', `${origin}/gracias.html?session_id={CHECKOUT_SESSION_ID}`);
   params.set('cancel_url', `${origin}/#carrito`);
   params.set('billing_address_collection', 'required');
+  params.set('allow_promotion_codes', 'true');
   params.append('shipping_address_collection[allowed_countries][]', 'ES');
   params.set('custom_text[submit][message]', 'Recibirás confirmación por email. Envío 24-48h.');
   params.set('metadata[source]', 'resell-your-order');
