@@ -1,0 +1,10 @@
+name = "resell-your-order"
+main = "src/worker.js"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+# Sirve index.html para rutas que no coincidan con ningún archivo
+# (necesario porque la web es una SPA con hashes tipo #producto/xyz)
+not_found_handling = "single-page-application"
