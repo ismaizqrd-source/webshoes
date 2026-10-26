@@ -699,12 +699,16 @@ function loadAI() {
     aiPromise = (async () => {
       await loadScript(ORT_BASE + 'ort.wasm.min.js');
       window.ort.env.wasm.wasmPaths = ORT_BASE;
-      window.ort.env.wasm.numThreads = 1;
+      // Varios hilos solo si la página está aislada (ver src/worker.js); si no, 1
+      window.ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2))) : 1;
       const res = await fetch(MODEL_URL);
       if (!res.ok) throw new Error('No se encontró el modelo de recorte.');
       const bytes = new Uint8Array(await res.arrayBuffer());
       const session = await window.ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
-      return { ort: window.ort, session };
+      // onnxruntime no admite dos run() a la vez en la misma sesión: se encolan
+      let chain = Promise.resolve();
+      const queued = { inputNames: session.inputNames, outputNames: session.outputNames, run: (...a) => { const r = chain.then(() => session.run(...a)); chain = r.catch(() => {}); return r; } };
+      return { ort: window.ort, session: queued };
     })().catch((e) => { aiPromise = null; throw e; });
   }
   return aiPromise;
@@ -767,6 +771,16 @@ async function uploadBlob(blob) {
   return r.url;
 }
 
+// Procesa la lista con varias fotos a la vez (descarga, recorte, subida se solapan)
+const CONCURRENCY = 4;
+async function pool(list, worker, shouldStop) {
+  let next = 0;
+  const run = async () => {
+    while (!shouldStop() && next < list.length) { const i = next++; await worker(list[i], i); }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, run));
+}
+
 /* ── unificar la foto de un producto desde el editor ── */
 async function unifyOne(flip) {
   const id = $('editId').value;
@@ -823,7 +837,7 @@ async function runUnify() {
   let targets = products.filter((p) => ids.has(p.id) && p.image);
   if ($('unOnlyPending').checked) targets = targets.filter((p) => !isUnified(p));
   if (!targets.length) return toast('No hay fotos que unificar en ese grupo.', 'err');
-  if (targets.length > 8 && !confirm(`Se van a procesar ${targets.length} fotos (unos 3-4 segundos cada una). Puedes cancelar en cualquier momento. ¿Empezar?`)) return;
+  if (targets.length > 8 && !confirm(`Se van a procesar ${targets.length} fotos (en torno a 1 segundo cada una de media). Puedes cancelar en cualquier momento. ¿Empezar?`)) return;
 
   unifyRunning = true; unifyCancel = false;
   $('unProg').classList.remove('hidden'); $('btnUnStart').disabled = true; $('btnUnCancel').textContent = 'Cancelar';
@@ -831,10 +845,8 @@ async function runUnify() {
   let ok = 0, fail = 0;
   const log = (m) => { const l = $('unLog'); l.textContent += m + '\n'; l.scrollTop = l.scrollHeight; };
 
-  for (let i = 0; i < targets.length && !unifyCancel; i++) {
-    const p = targets[i];
-    $('unStatus').textContent = `${i + 1} de ${targets.length} · ${p.title}`;
-    $('unBar').style.width = (i / targets.length * 100) + '%';
+  let done = 0;
+  await pool(targets, async (p) => {
     try {
       const r = await processImage(p.image, { orient: shouldOrient(p), useAI });
       const url = await uploadBlob(r.blob);
@@ -843,7 +855,10 @@ async function runUnify() {
       ok++;
       if (r.warnings.length) log(`⚠ ${p.title}: ${r.warnings.join(' ')}`);
     } catch (e) { fail++; log(`✗ ${p.title}: ${e.message}`); }
-  }
+    done++;
+    $('unStatus').textContent = `${done} de ${targets.length} · ${p.title}`;
+    $('unBar').style.width = (done / targets.length * 100) + '%';
+  }, () => unifyCancel);
   $('unBar').style.width = '100%';
   $('unStatus').textContent = `${unifyCancel ? 'Cancelado' : 'Terminado'}: ${ok} fotos unificadas${fail ? `, ${fail} con error` : ''}.`;
   unifyRunning = false; unifyCancel = false;
@@ -938,19 +953,21 @@ async function processImportQueue() {
   const todo = imp.filter((c) => c.status === 'pending');
   const useAI = $('optAI').checked;
   let n = 0;
-  for (const c of todo) {
-    if (impCancel) break;
+  await pool(todo, async (c) => {
     c.status = 'working'; renderImport();
-    $('impProgress').textContent = `Procesando fotos ${++n} de ${todo.length}…`;
-    $('impBar').style.width = ((n - 1) / todo.length * 100) + '%';
-    if (!c.srcImage) { c.status = 'warn'; c.note = 'Sin imagen'; continue; }
-    try {
-      const r = await processImage(c.srcImage, { orient: shouldOrient(c), useAI });
-      c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped;
-      c.status = r.warnings.length ? 'warn' : 'done'; c.note = r.warnings.join(' ');
-    } catch (e) { c.status = 'err'; c.note = e.message; }
+    if (!c.srcImage) { c.status = 'warn'; c.note = 'Sin imagen'; }
+    else {
+      try {
+        const r = await processImage(c.srcImage, { orient: shouldOrient(c), useAI });
+        c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped;
+        c.status = r.warnings.length ? 'warn' : 'done'; c.note = r.warnings.join(' ');
+      } catch (e) { c.status = 'err'; c.note = e.message; }
+    }
+    n++;
+    $('impProgress').textContent = `Procesadas ${n} de ${todo.length} fotos…`;
+    $('impBar').style.width = (n / todo.length * 100) + '%';
     renderImport();
-  }
+  }, () => impCancel);
   $('impBar').style.width = '100%';
   $('impProgress').textContent = impCancel ? 'Proceso cancelado.' : 'Fotos listas. Revisa y guarda.';
   impRunning = false; $('btnImpCancel').disabled = true;
