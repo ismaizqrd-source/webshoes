@@ -246,6 +246,8 @@ tbody tr.sel{background:#f0f4ff}
         <div class="opts">
           <label><input type="checkbox" id="optUnify" checked>
             <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
+          <label><input type="checkbox" id="optColor" checked>
+            <span>Añadir el color al nombre <small>Detecta el color principal de la foto ("Ami Hoodie – Rojo") para distinguir las variantes. No se añade si el nombre ya lleva un color.</small></span></label>
           <label><input type="checkbox" id="optFast" checked>
             <span>Modo rápido <small>Si el fondo es liso y limpio recorta por color (unos 60 ms) y solo usa la IA en las fotos difíciles. Va 2 o 3 veces más rápido.</small></span></label>
           <label><input type="checkbox" id="optAI" checked>
@@ -377,6 +379,7 @@ tbody tr.sel{background:#f0f4ff}
     </div>
     <div class="opts">
       <label><input type="checkbox" id="unOnlyPending" checked><span>Solo las que aún no estén unificadas <small>(<span id="unNPend">0</span> en este grupo)</small></span></label>
+      <label><input type="checkbox" id="unColor"><span>Añadir el color al nombre <small>Detecta el color principal de la foto y lo añade al nombre si no lo lleva ya.</small></span></label>
       <label><input type="checkbox" id="unFast" checked><span>Modo rápido <small>Si el fondo es liso y limpio recorta por color (unos 60 ms) y solo usa la IA en las fotos difíciles. Va 2 o 3 veces más rápido.</small></span></label>
       <label><input type="checkbox" id="unAI" checked><span>Recorte con IA <small>Mejor resultado; descarga un modelo de 4,5 MB la primera vez.</small></span></label>
     </div>
@@ -758,6 +761,13 @@ async function fetchBitmap(url) {
   throw new Error('No se pudo descargar la imagen (' + (lastErr ? lastErr.message : '?') + ')');
 }
 
+// Añade el color al nombre ("Ami Hoodie" -> "Ami Hoodie – Rojo") si el nombre no dice ya un color
+const COLOR_WORDS = /\b(negr[oa]s?|blanc[oa]s?|roj[oa]s?|azul(es)?|verd(e|es)|amarill[oa]s?|ros[ae]s?|gris(es)?|beige|marr[oó]n|naranja|morad[oa]s?|lila|crema|burdeos|plat(a|eadas?)|dorad[oa]s?|black|white|red|blue|green|yellow|pink|gr[ea]y|brown|orange|purple|navy|cream|sand|olive|silver|gold|tan|khaki|mint|sky|lilac|burgundy)\b/i;
+function withColor(title, color) {
+  if (!color || COLOR_WORDS.test(title || '')) return title;
+  return `${title} – ${color}`;
+}
+
 // Calzado de pala abierta o zueco: la orientación automática no es fiable
 const NO_ORIENT = /birkenstock|boston|arizona|sandalia|chancla|crocs|slide|clog|zueco|ugg/i;
 const shouldOrient = (p) => (p.cat || 'Calzado') === 'Calzado' && !NO_ORIENT.test(`${p.title || ''} ${p.brand || ''}`);
@@ -788,7 +798,7 @@ async function processImage(url, opts) {
   out.getContext('2d').putImageData(new ImageData(res.rgba, res.size, res.size), 0, 0);
   const blob = await new Promise((ok) => out.toBlob(ok, 'image/webp', 0.88));
   if (!blob) throw new Error('El navegador no pudo crear la imagen.');
-  return { blob, previewUrl: URL.createObjectURL(blob), flipped: res.flipped, warnings: [...warnings, ...res.warnings], method: res.method };
+  return { blob, color: res.color || '', previewUrl: URL.createObjectURL(blob), flipped: res.flipped, warnings: [...warnings, ...res.warnings], method: res.method };
 }
 
 async function uploadBlob(blob) {
@@ -900,8 +910,10 @@ async function runUnify() {
       const url = await uploadBlob(r.blob);
       URL.revokeObjectURL(r.previewUrl);
       ok++;
+      const fields = { image: url };
+      if ($('unColor').checked) { const t = withColor(p.title, r.color); if (t !== p.title) fields.title = t; }
       // la escritura de la lista va en lotes: no se espera aquí para no frenar la siguiente foto
-      pend.push(queuePatch(p.id, { image: url }).catch((e) => { ok--; fail++; log(`✗ ${p.title}: ${e.message}`); }));
+      pend.push(queuePatch(p.id, fields).catch((e) => { ok--; fail++; log(`✗ ${p.title}: ${e.message}`); }));
       if (r.warnings.length) log(`⚠ ${p.title}: ${r.warnings.join(' ')}`);
     } catch (e) { fail++; log(`✗ ${p.title}: ${e.message}`); }
     done++;
@@ -1047,7 +1059,7 @@ async function startImport() {
     });
     renderImport();
     $('importArea').classList.remove('hidden');
-    if ($('optUnify').checked) processImportQueue();
+    if ($('optUnify').checked || $('optColor').checked) processImportQueue();
   } catch (e) { toast('Error al importar: ' + e.message, 'err'); }
   btn.disabled = false; btn.textContent = 'Extraer datos desde Cloudflare';
 }
@@ -1086,8 +1098,12 @@ async function processImportQueue() {
     else {
       try {
         const r = await processImage(c.srcImage, { orient: shouldOrient(c), useAI, fast: $('optFast').checked });
-        c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped;
-        c.status = r.warnings.length ? 'warn' : 'done'; c.note = r.warnings.join(' ');
+        const unify = $('optUnify').checked;
+        if ($('optColor').checked) { const t = withColor(c.title, r.color); if (t !== c.title) { c.title = t; c.colorTitle = true; } }
+        if (unify) {
+          c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped;
+          c.status = r.warnings.length ? 'warn' : 'done'; c.note = r.warnings.join(' ');
+        } else { URL.revokeObjectURL(r.previewUrl); c.status = 'raw'; c.note = ''; }
       } catch (e) { c.status = 'err'; c.note = e.message; }
     }
     if (c.saved) await finishBackground(c);   // ya estaba guardado: se actualiza su foto
@@ -1145,9 +1161,11 @@ window.addEventListener('beforeunload', (e) => { if (bg.total - bg.done - bg.fai
 async function finishBackground(c) {
   const settle = () => { bgBanner(); if (bg.total - bg.done - bg.fail <= 0) loadProducts().catch(() => {}); };
   try {
-    if (c.blob && c.productId) {
-      const url = await uploadBlob(c.blob);
-      queuePatch(c.productId, { image: url }).then(() => { bg.done++; settle(); }).catch(() => { bg.fail++; settle(); });
+    const fields = {};
+    if (c.blob) fields.image = await uploadBlob(c.blob);
+    if (c.colorTitle) fields.title = c.title;
+    if (c.productId && Object.keys(fields).length) {
+      queuePatch(c.productId, fields).then(() => { bg.done++; settle(); }).catch(() => { bg.fail++; settle(); });
       return;
     }
     bg.fail++;
