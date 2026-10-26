@@ -488,6 +488,119 @@ function parseGenericItem({ url, block }, base, categoryHint) {
   };
 }
 
+/* ------------------------------- Yupoo --------------------------------- */
+// Álbumes de proveedores (xxx.x.yupoo.com/albums): cada álbum = un producto con varias fotos.
+
+const isYupooHost = (h) => /(^|\.)yupoo\.com$/i.test(h);
+const yupooAbs = (u, base) => absUrl(String(u || '').startsWith('//') ? 'https:' + u : u, base);
+
+// Precio escrito en el título del álbum: "¥150", "150 RMB", "$25", "€30"
+function yupooPrice(title) {
+  const t = String(title || '');
+  let m = t.match(/([¥￥$€£])\s?(\d{1,5}(?:[.,]\d{1,2})?)/);
+  if (m) return { value: parseNumber(m[2]), currency: { '¥': 'CNY', '￥': 'CNY', '$': 'USD', '€': 'EUR', '£': 'GBP' }[m[1]] };
+  m = t.match(/(\d{1,5}(?:[.,]\d{1,2})?)\s?(RMB|CNY|元|USD|EUR)/i);
+  if (m) return { value: parseNumber(m[1]), currency: /usd/i.test(m[2]) ? 'USD' : /eur/i.test(m[2]) ? 'EUR' : 'CNY' };
+  return null;
+}
+// Quita el precio y adornos del título para dejar solo el nombre
+const yupooCleanTitle = (t) =>
+  decode(t).replace(/[¥￥$€£]\s?\d+(?:[.,]\d+)?/g, '').replace(/\b\d+(?:[.,]\d+)?\s?(RMB|CNY|元)\b/gi, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, '').replace(/\s{2,}/g, ' ').replace(/^[\s\-–|:]+|[\s\-–|:]+$/g, '').trim();
+
+function parseYupooAlbums(html, base) {
+  const re = /<a\b[^>]*href=["']([^"']*\/albums\/(\d+)[^"']*)["'][^>]*>/gi;
+  const marks = [], seen = new Set();
+  let m;
+  while ((m = re.exec(html))) {
+    if (seen.has(m[2])) continue;
+    seen.add(m[2]); marks.push({ index: m.index, tag: m[0], href: m[1], id: m[2] });
+  }
+  return marks.map((mk, i) => {
+    const block = html.slice(mk.index, i + 1 < marks.length ? marks[i + 1].index : mk.index + 4000);
+    const titleM = block.match(/class=["'][^"']*album__title[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p|h\d)>/i);
+    const img = (block.match(/<img\b[^>]*>/i) || [''])[0];
+    const rawTitle = (titleM ? stripTags(titleM[1]) : '') || attr(mk.tag, 'title') || attr(img, 'alt');
+    const cover = attr(img, 'data-origin-src') || attr(img, 'data-src') || attr(img, 'src');
+    const count = parseInt((block.match(/album__photonumber[^>]*>\s*(\d+)/i) || [])[1], 10) || 0;
+    const url = yupooAbs(mk.href, base).replace(/&amp;/g, '&');
+    const price = yupooPrice(rawTitle);
+    return {
+      id: mk.id, title: yupooCleanTitle(rawTitle), image: cover ? yupooAbs(cover, base) : '', url,
+      album_url: url, photo_count: count, price_hint: price, source: 'yupoo', brand: matchKnownBrand(rawTitle),
+    };
+  }).filter((a) => a.title);
+}
+
+function parseYupooPhotos(html, base) {
+  const out = [], seen = new Set();
+  for (const tag of html.match(/<img\b[^>]*>/gi) || []) {
+    const origin = attr(tag, 'data-origin-src') || attr(tag, 'data-src') || attr(tag, 'src');
+    if (!origin || !/photo\.yupoo\.com\/[^/]+\/[^/]+\//i.test(origin)) continue;
+    if (/avatar|logo|banner/i.test(origin)) continue;
+    const key = (origin.match(/photo\.yupoo\.com\/[^/]+\/([^/]+)\//i) || [])[1];
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    // la foto grande: si solo hay miniatura (small/medium/square) se pide la "big"
+    out.push(yupooAbs(origin, base).replace(/\/(small|medium|square|thumb)\.(jpe?g|png|webp)/i, '/big.$2'));
+  }
+  return out;
+}
+
+async function yupooScrape(target, startPage, maxPages) {
+  const headers = { Referer: `${target.origin}/`, 'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8' };
+  const isAlbumPage = /\/albums\/\d+/.test(target.pathname);
+
+  if (isAlbumPage) {
+    const { html, finalUrl } = await fetchHtml(target.href, headers);
+    const titleM = html.match(/showalbumheader__gallerytitle[^>]*>([\s\S]*?)<\/(?:span|div|h\d)>/i) ||
+      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i) || html.match(/<title>([\s\S]*?)<\/title>/i);
+    const rawTitle = titleM ? stripTags(titleM[1]) : '';
+    const photos = parseYupooPhotos(html, finalUrl);
+    if (!photos.length) throw new Error('No se encontraron fotos en el álbum.');
+    const price = yupooPrice(rawTitle);
+    const product = withPanelFields({
+      id: (target.pathname.match(/\/albums\/(\d+)/) || [])[1] || '', title: yupooCleanTitle(rawTitle.replace(/\|.*$/, '')) || 'Producto Yupoo',
+      price: null, regular_price: null, sale_price: null, price_text: '', currency: 'EUR',
+      image: photos[0], photos, url: target.href, album_url: target.href, price_hint: price, source: 'yupoo',
+      brand: matchKnownBrand(rawTitle), in_stock: true,
+    }, target.href, rawTitle);
+    return { is_category: false, via: 'yupoo', ...product, products: [product] };
+  }
+
+  // listado de álbumes: /albums, /albums/<categoría>, ?page=N
+  const listUrl = new URL(target.href);
+  if (startPage > 1) listUrl.searchParams.set('page', String(startPage));
+  const first = Math.max(startPage || 0, parseInt(listUrl.searchParams.get('page'), 10) || 1);
+  const products = [], seen = new Set();
+  let page = first, totalPages = 0, pagesDone = 0, rateLimited = false;
+  while (pagesDone < maxPages) {
+    const u = new URL(listUrl.href); if (page > 1) u.searchParams.set('page', String(page)); else u.searchParams.delete('page');
+    let res;
+    try { res = await fetchHtml(u.href, headers); }
+    catch (e) {
+      if (/HTTP (429|502|503)/.test(String(e.message)) && pagesDone > 0) { rateLimited = true; break; }
+      throw e;
+    }
+    const albums = parseYupooAlbums(res.html, res.finalUrl);
+    for (const hr of res.html.matchAll(/[?&]page=(\d+)/g)) totalPages = Math.max(totalPages, parseInt(hr[1], 10) || 0);
+    const before = products.length;
+    for (const a of albums) { if (seen.has(a.id)) continue; seen.add(a.id); products.push(withPanelFields(a, a.url, a.title)); }
+    pagesDone++;
+    if (!albums.length || products.length === before) { page++; break; }
+    page++;
+    if (totalPages && page > totalPages) break;
+    if (pagesDone < maxPages) await sleep(500);
+  }
+  const hasMore = rateLimited || (totalPages ? page <= totalPages : false);
+  if (!products.length) throw new Error('No se encontraron álbumes. Puede que Yupoo esté bloqueando la lectura desde el servidor.');
+  return {
+    is_category: true, via: 'yupoo', source_url: target.href, count: products.length, pages: pagesDone,
+    page_start: first, page_end: page - 1, total_pages: totalPages || page - 1, has_more_pages: hasMore,
+    rate_limited: rateLimited, next_page: hasMore ? page : 0, products,
+  };
+}
+
 /* --------------------------- producto individual ---------------------- */
 
 function extractSingle(html, base) {
@@ -528,10 +641,10 @@ function extractSingle(html, base) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Pide la página; si la tienda responde 429/503 (demasiadas peticiones) espera y reintenta
-async function fetchHtml(url) {
+async function fetchHtml(url, extra) {
   let last;
   for (let attempt = 0; attempt < 4; attempt++) {
-    try { return await fetchHtmlOnce(url); }
+    try { return await fetchHtmlOnce(url, extra); }
     catch (e) {
       last = e;
       const m = /HTTP (\d+)/.exec(String(e.message));
@@ -542,13 +655,14 @@ async function fetchHtml(url) {
   throw last;
 }
 
-async function fetchHtmlOnce(url) {
+async function fetchHtmlOnce(url, extra = {}) {
   const res = await fetch(url, {
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
       Accept: 'text/html,application/xhtml+xml',
       'Accept-Language': 'es-ES,es;q=0.9',
+      ...extra,
     },
     redirect: 'follow',
     signal: AbortSignal.timeout(15000),
@@ -595,6 +709,14 @@ export async function handleScrape(request) {
     Math.max(parseInt(body.max_pages, 10) || DEFAULT_MAX_PAGES, 1),
     HARD_MAX_PAGES
   );
+
+  if (isYupooHost(target.hostname)) {
+    try { return json(await yupooScrape(target, parseInt(body.start_page, 10) || 0, Math.min(maxPages, 5))); }
+    catch (e) {
+      const msg = String(e.message || e);
+      return json({ error: /HTTP (403|567|429|503)/.test(msg) ? 'Yupoo bloquea las lecturas automáticas desde el servidor (' + msg + ').' : msg }, 502);
+    }
+  }
 
   const startPage = parseInt(body.start_page, 10) || 0;
   if (startPage > 1) {
