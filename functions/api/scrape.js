@@ -1,5 +1,5 @@
 export async function onRequestPost(context) {
-  const { request, env } = context;
+  const { request } = context;
   const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -34,16 +34,16 @@ export async function onRequestPost(context) {
 
     if (isCategory) {
       const productsMap = new Map();
-      const productBlocks = html.split(/<li[^>]*class="[^"]*product[^"]*"/gi);
+      const productBlocks = html.split(/<(li|div|article)[^>]*class="[^"]*\bproduct\b[^"]*"/gi);
       
       for (let i = 1; i < productBlocks.length; i++) {
         const block = productBlocks[i];
         
-        const tMatch = block.match(/<h2[^>]*class="[^"]*woocommerce-loop-product__title[^"]*">([\s\S]*?)<\/h2>/i) ||
-                       block.match(/<a[^>]*class="[^"]*woocommerce-LoopProduct-link[^"]*">([\s\S]*?)<\/a>/i) ||
-                       block.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
+        const tMatch = block.match(/<h[23][^>]*class="[^"]*woocommerce-loop-product__title[^"]*">([\s\S]*?)<\/h[23]>/i) ||
+                       block.match(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/i) ||
+                       block.match(/class="[^"]*woocommerce-LoopProduct-link[^"]*">([\s\S]*?)<\/a>/i);
         const rawTitle = tMatch ? tMatch[1].replace(/<[^>]*>/g, '').trim() : "";
-        if (!rawTitle) continue;
+        if (!rawTitle || rawTitle.length < 2) continue;
 
         let price = 68.99;
         const pMatch = block.match(/<ins[^>]*>[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*</i) ||
@@ -54,9 +54,10 @@ export async function onRequestPost(context) {
         }
 
         const imgMatch = block.match(/data-lazy-src="([^"]+)"/i) ||
-                         block.match(/src="([^"]+)"/i) ||
-                         block.match(/data-src="([^"]+)"/i);
-        const image = imgMatch ? imgMatch[1] : "";
+                         block.match(/data-src="([^"]+)"/i) ||
+                         block.match(/src="([^"]+)"/i);
+        let image = imgMatch ? imgMatch[1] : "";
+        if (image && !image.startsWith('http')) image = '';
 
         let brand = "New Balance";
         const lower = rawTitle.toLowerCase();
@@ -70,7 +71,7 @@ export async function onRequestPost(context) {
             title: rawTitle,
             price: price,
             brand: brand,
-            image: image.startsWith('http') ? image : '',
+            image: image,
             sizes: ["36", "37", "38", "39", "40", "41", "42", "43", "44", "45"],
             category_guess: "Calzado",
             source_url: targetUrl
