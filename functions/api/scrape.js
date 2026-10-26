@@ -34,51 +34,47 @@ export async function onRequestPost(context) {
 
     if (isCategory) {
       const productsMap = new Map();
-      // Separador flexible compatible con comillas dobles y simples en WooCommerce
-      const productBlocks = html.split(/class=["'][^"']*\bproduct\b[^"']*["']/gi);
       
-      for (let i = 1; i < productBlocks.length; i++) {
-        const block = productBlocks[i];
-        
-        // Extracción limpia del título del producto
-        let rawTitle = "";
-        const hMatch = block.match(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/i);
-        if (hMatch) {
-          rawTitle = hMatch[1].replace(/<[^>]*>/g, '').trim();
-        } else {
-          const aMatch = block.match(/class=["'][^"']*woocommerce-loop-product__link[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
-          if (aMatch) rawTitle = aMatch[1].replace(/<[^>]*>/g, '').trim();
-        }
+      // Separación robusta basada en elementos de producto de WooCommerce
+      const blocks = html.split(/<li[^>]*class="[^"]*\bproduct\b[^"]*"[^>]*>/i);
+      const searchBlocks = blocks.length > 1 ? blocks : html.split(/<div[^>]*class="[^"]*\bproduct\b[^"]*"[^>]*>/i);
 
-        if (!rawTitle || rawTitle.length < 2) continue;
+      for (let i = 1; i < searchBlocks.length; i++) {
+        const block = searchBlocks[i];
+
+        const titleMatch = block.match(/<h[23][^>]*class="[^"]*woocommerce-loop-product__title[^"]*">([\s\S]*?)<\/h[23]>/i) ||
+                           block.match(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/i) ||
+                           block.match(/class="[^"]*woocommerce-LoopProduct-link[^"]*">([\s\S]*?)<\/a>/i);
+        const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : "";
+        if (!title || title.length < 2) continue;
 
         let price = 68.99;
-        const pMatch = block.match(/<ins[^>]*>[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i) ||
-                       block.match(/<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i) ||
-                       block.match(/amount["'][^>]*>\s*"?([\d.,]+)/i);
-        if (pMatch && pMatch[1]) {
-          price = parseFloat(pMatch[1].replace(/\./g, '').replace(',', '.')) || 68.99;
+        const priceMatch = block.match(/<ins[^>]*>[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i) ||
+                           block.match(/<span class="woocommerce-Price-amount amount">[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i) ||
+                           block.match(/<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i);
+        if (priceMatch && priceMatch[1]) {
+          price = parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) || 68.99;
         }
 
-        const imgMatch = block.match(/data-lazy-src=["']([^"']+)["']/i) ||
-                         block.match(/data-src=["']([^"']+)["']/i) ||
-                         block.match(/src=["']([^"']+)["']/i);
+        const imgMatch = block.match(/data-lazy-src="([^"]+)"/i) ||
+                         block.match(/data-src="([^"]+)"/i) ||
+                         block.match(/src="([^"]+)"/i);
         let image = imgMatch ? imgMatch[1] : "";
         if (image && !image.startsWith('http')) image = '';
 
         let brand = "New Balance";
-        const lower = rawTitle.toLowerCase();
+        const lower = title.toLowerCase();
         if (lower.includes("nike") || lower.includes("dunk") || lower.includes("force")) brand = "Nike";
         else if (lower.includes("adidas") || lower.includes("campus") || lower.includes("samba")) brand = "Adidas";
         else if (lower.includes("jordan")) brand = "Jordan";
         else if (lower.includes("balenciaga")) brand = "Balenciaga";
 
-        if (!productsMap.has(rawTitle)) {
-          productsMap.set(rawTitle, {
-            title: rawTitle,
-            price: price,
-            brand: brand,
-            image: image,
+        if (!productsMap.has(title)) {
+          productsMap.set(title, {
+            title,
+            price,
+            brand,
+            image,
             sizes: ["36", "37", "38", "39", "40", "41", "42", "43", "44", "45"],
             category_guess: "Calzado",
             source_url: targetUrl
@@ -97,10 +93,15 @@ export async function onRequestPost(context) {
           status: 200,
           headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
         });
+      } else {
+        return new Response(JSON.stringify({ error: "No se encontraron elementos de producto en esta categoría." }), {
+          status: 422,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+        });
       }
     }
 
-    // Producto individual (respaldo)
+    // Producto individual
     const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || 
                        html.match(/<meta property="og:title" content="([^"]+)"/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').replace(/–.*$/, '').trim() : "Producto importado";
