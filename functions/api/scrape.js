@@ -30,11 +30,14 @@ export async function onRequestPost(context) {
     }
 
     const html = await response.text();
-    const isCategory = targetUrl.includes("categoria-producto") || targetUrl.includes("shop") || targetUrl.includes("brand") || !targetUrl.includes("/producto/");
+
+    // Detección automática por contenido HTML (infalible para WooCommerce)
+    const productBlocks = html.split(/<(li|div|article)[^>]*class="[^"]*\bproduct\b[^"]*"/gi);
+    const hasLoopTitle = html.includes("woocommerce-loop-product__title");
+    const isCategory = productBlocks.length > 3 || hasLoopTitle || targetUrl.includes("categoria-producto") || targetUrl.includes("shop");
 
     if (isCategory) {
       const productsMap = new Map();
-      const productBlocks = html.split(/<(li|div|article)[^>]*class="[^"]*\bproduct\b[^"]*"/gi);
       
       for (let i = 1; i < productBlocks.length; i++) {
         const block = productBlocks[i];
@@ -81,17 +84,19 @@ export async function onRequestPost(context) {
 
       const scrapedList = Array.from(productsMap.values());
 
-      return new Response(JSON.stringify({
-        is_category: true,
-        count: scrapedList.length,
-        products: scrapedList
-      }), {
-        status: 200,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-      });
+      if (scrapedList.length > 0) {
+        return new Response(JSON.stringify({
+          is_category: true,
+          count: scrapedList.length,
+          products: scrapedList
+        }), {
+          status: 200,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+        });
+      }
     }
 
-    // Producto individual
+    // Producto individual (respaldo)
     const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || 
                        html.match(/<meta property="og:title" content="([^"]+)"/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').replace(/–.*$/, '').trim() : "Producto importado";
@@ -145,4 +150,4 @@ export async function onRequestOptions() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
   };
   return new Response(null, { headers: CORS_HEADERS });
-} 
+}
