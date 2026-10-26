@@ -896,9 +896,22 @@ async function startImport() {
       items = data.products.slice();
       const seen = new Set(items.map((x) => x.url || x.title));
       let loaded = data.pages, total = data.total_pages || 0;
+      let fails = 0;
       while (data.has_more_pages && loaded < wanted && data.next_page) {
         btn.innerHTML = `<span class="spinner"></span> Páginas ${loaded}${total ? ' de ' + total : ''}… (${items.length} productos)`;
-        data = await scrapeCall({ url, start_page: data.next_page, max_pages: Math.min(wanted - loaded, PER_CALL) });
+        let nd;
+        try {
+          nd = await scrapeCall({ url, start_page: data.next_page, max_pages: Math.min(wanted - loaded, PER_CALL) });
+        } catch (e) { nd = null; }
+        if (!nd || (nd.rate_limited && !nd.pages)) {
+          // La tienda pide ir más despacio (429): espera y reintenta la misma tanda
+          if (++fails > 6) { toast(`La tienda te limita las peticiones. Se han cargado ${loaded} páginas; vuelve a intentarlo en un minuto empezando por /page/${data.next_page}/.`, 'err'); break; }
+          const wait = Math.min(5 * fails, 25);
+          for (let t = wait; t > 0; t--) { btn.innerHTML = `<span class="spinner"></span> La tienda va lenta, reintento en ${t}s… (${items.length} productos guardados)`; await new Promise((r) => setTimeout(r, 1000)); }
+          continue;
+        }
+        fails = 0;
+        data = nd;
         if (!data.pages) break;
         loaded += data.pages;
         for (const x of data.products) { const k = x.url || x.title; if (!seen.has(k)) { seen.add(k); items.push(x); } }
