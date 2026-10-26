@@ -161,12 +161,12 @@ tbody tr:hover{background:var(--bg2)}
     <!-- IMPORT VIEW -->
     <div class="view" id="view-import">
       <div class="view-head">
-        <div><h1>Importador en la Nube</h1><p>Raspa productos directamente usando tu Cloudflare Worker sin usar Python</p></div>
+        <div><h1>Importador en la Nube</h1><p>Raspa productos individuales o categorías enteras de Avviishop</p></div>
       </div>
       <div class="import-box">
         <div class="field">
-          <label>URL del producto (ej: Avvii Shop, WooCommerce, etc.)</label>
-          <input id="importUrl" placeholder="https://avviishop.com/producto/...">
+          <label>URL del producto o categoría (ej: Avviishop)</label>
+          <input id="importUrl" placeholder="https://avviishop.com/producto/... o /categoria-producto/...">
         </div>
         <button class="btn" id="btnImport" onclick="importFromCloudflare()">Extraer datos desde Cloudflare</button>
 
@@ -349,20 +349,42 @@ async function importFromCloudflare() {
     try {
       data = JSON.parse(rawText);
     } catch (parseErr) {
-      throw new Error(`El servidor devolvió una respuesta no válida: ${rawText.substring(0, 80)}`);
+      throw new Error(`Respuesta inválida del servidor: ${rawText.substring(0, 80)}`);
     }
 
     if(!res.ok || data.error) {
       throw new Error(data.error || 'Error desconocido en el servidor');
     }
 
-    currentScraped = data;
-    document.getElementById('impTitle').textContent = data.title;
-    document.getElementById('impMeta').textContent = `${data.brand} — ${data.price} €`;
-    document.getElementById('impImg').src = data.image;
-    document.getElementById('importResult').classList.add('on');
+    // Soporte para categorías o listados masivos
+    if (data.is_category) {
+      if (!data.products || data.products.length === 0) {
+        throw new Error("No se encontraron productos en esta categoría.");
+      }
+      data.products.forEach(p => {
+        products.push({
+          title: p.title,
+          brand: p.brand,
+          cat: p.category_guess || 'Calzado',
+          price: p.price || 68.99,
+          image: p.image || ''
+        });
+      });
+      saveStorage();
+      renderProducts();
+      alert(`¡Se han importado ${data.products.length} productos de la categoría al inventario correctamente!`);
+      document.getElementById('importResult').classList.remove('on');
+      document.getElementById('importUrl').value = '';
+    } else {
+      // Producto individual
+      currentScraped = data;
+      document.getElementById('impTitle').textContent = data.title;
+      document.getElementById('impMeta').textContent = `${data.brand} — ${data.price} €`;
+      document.getElementById('impImg').src = data.image;
+      document.getElementById('importResult').classList.add('on');
+    }
   } catch(err) {
-    alert('Error al importar desde la nube: ' + err.message);
+    alert('Error al importar: ' + err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Extraer datos desde Cloudflare';
