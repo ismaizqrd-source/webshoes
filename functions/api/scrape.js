@@ -325,7 +325,24 @@ function extractSingle(html, base) {
 
 /* ------------------------------- fetching ----------------------------- */
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Pide la página; si la tienda responde 429/503 (demasiadas peticiones) espera y reintenta
 async function fetchHtml(url) {
+  let last;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try { return await fetchHtmlOnce(url); }
+    catch (e) {
+      last = e;
+      const m = /HTTP (\d+)/.exec(String(e.message));
+      if (!m || !['429', '503', '502'].includes(m[1])) throw e;
+      await sleep(e.retryAfter || 1200 * (attempt + 1));
+    }
+  }
+  throw last;
+}
+
+async function fetchHtmlOnce(url) {
   const res = await fetch(url, {
     headers: {
       'User-Agent':
@@ -336,7 +353,12 @@ async function fetchHtml(url) {
     redirect: 'follow',
     signal: AbortSignal.timeout(15000),
   });
-  if (!res.ok) throw new Error(`La tienda respondió HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`La tienda respondió HTTP ${res.status}`);
+    const ra = parseInt(res.headers.get('retry-after'), 10);
+    if (ra > 0) err.retryAfter = Math.min(ra, 5) * 1000;
+    throw err;
+  }
   return { html: await res.text(), finalUrl: res.url || url };
 }
 
@@ -421,8 +443,16 @@ export async function handleScrape(request) {
       let lastUrl = base;
       let next = findNextPage(lastHtml, lastUrl);
 
+      let rateLimited = false;
       while (next && pages < maxPages) {
-        const page = await fetchHtml(next);
+        await sleep(350); // ritmo suave para no saturar la tienda
+        let page;
+        try { page = await fetchHtml(next); }
+        catch (e) {
+          // Se devuelve lo ya cargado y se avisa; el panel reintenta desde esta página
+          if (/HTTP (429|502|503)/.test(String(e.message))) { rateLimited = true; break; }
+          throw e;
+        }
         const before = products.length;
         add(extractLoopItems(page.html), page.finalUrl);
         pages++;
@@ -432,7 +462,7 @@ export async function handleScrape(request) {
         next = findNextPage(lastHtml, lastUrl);
       }
 
-      const hasMore = !!findNextPage(lastHtml, lastUrl);
+      const hasMore = rateLimited || !!findNextPage(lastHtml, lastUrl);
       const pageStart = pageNumberOf(base);
       const pageEnd = pageNumberOf(lastUrl);
       return json({
@@ -444,6 +474,7 @@ export async function handleScrape(request) {
         page_end: pageEnd,
         total_pages: Math.max(totalPagesOf(html), totalPagesOf(lastHtml), pageEnd),
         has_more_pages: hasMore,
+        rate_limited: rateLimited,
         next_page: hasMore ? pageEnd + 1 : 0,
         products,
       });
