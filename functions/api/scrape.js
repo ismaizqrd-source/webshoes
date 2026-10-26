@@ -1,5 +1,5 @@
 export async function onRequestPost(context) {
-  const headers = {
+  const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -7,75 +7,47 @@ export async function onRequestPost(context) {
   };
 
   try {
-    let body;
-    try {
-      body = await context.request.json();
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Cuerpo de solicitud inválido" }), { status: 400, headers });
-    }
-
+    const body = await context.request.json();
     const targetUrl = body.url;
+
     if (!targetUrl) {
-      return new Response(JSON.stringify({ error: "URL no proporcionada" }), { status: 400, headers });
+      return new Response(JSON.stringify({ error: "URL no proporcionada" }), { status: 400, headers: corsHeaders });
     }
 
-    let res;
-    try {
-      res = await fetch(targetUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        }
-      });
-    } catch (fetchErr) {
-      return new Response(JSON.stringify({ error: "No se pudo conectar a la tienda externa: " + fetchErr.message }), { status: 502, headers });
+    const response = await fetch(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      }
+    });
+
+    if (!response.ok) {
+      return new Response(JSON.stringify({ error: `La tienda externa respondió con estado ${response.status}` }), { status: 502, headers: corsHeaders });
     }
 
-    if (!res.ok) {
-      return new Response(JSON.stringify({ error: `La tienda respondió con estado ${res.status}` }), { status: 502, headers });
-    }
+    const html = await response.text();
 
-    const html = await res.text();
-
-    // Extracción segura de datos
-    let title = "Producto importado";
-    let price = 0;
-    let image = "";
-    let images = [];
-    let brand = "Adidas";
-
+    // Extracción básica y segura para WooCommerce
     const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<meta property="og:title" content="([^"]+)"/i);
-    if (titleMatch) {
-      title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
-    }
-
     const priceMatch = html.match(/<span class="price">[\s\S]*?<bdi>([\d.,]+)\s*€<\/bdi>/i) || html.match(/<meta property="product:price:amount" content="([^"]+)"/i);
-    if (priceMatch) {
-      price = parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) || 0;
-    }
+    const imageMatch = html.match(/data-large_image="([^"]+)"/i) || html.match(/<meta property="og:image" content="([^"]+)"/i);
 
-    const imgMatch = html.match(/data-large_image="([^"]+)"/i) || html.match(/<meta property="og:image" content="([^"]+)"/i);
-    if (imgMatch) {
-      image = imgMatch[1];
-      images.push(image);
-    }
+    const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : "Producto importado";
+    const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) : 0;
+    const image = imageMatch ? imageMatch[1] : "";
 
     const productData = {
       title,
       price,
-      brand,
-      model: title,
-      color: "Estándar",
+      brand: title.toLowerCase().includes("nike") ? "Nike" : (title.toLowerCase().includes("adidas") ? "Adidas" : "New Balance"),
       image,
-      images,
-      sizes: ["38", "39", "40", "41", "42", "43", "44"],
-      source_url: targetUrl,
-      category_guess: "Calzado"
+      category_guess: "Calzado",
+      source_url: targetUrl
     };
 
-    return new Response(JSON.stringify(productData), { status: 200, headers });
+    return new Response(JSON.stringify(productData), { status: 200, headers: corsHeaders });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Error interno en Cloudflare: " + err.message }), { status: 500, headers });
+    return new Response(JSON.stringify({ error: "Error en Cloudflare: " + err.message }), { status: 500, headers: corsHeaders });
   }
 }
 
