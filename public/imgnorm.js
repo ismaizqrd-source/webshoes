@@ -281,6 +281,46 @@
     return frac >= 0.08 && frac <= 0.32 && bw >= 0.4 && fill < 0.8 && white / fg < 0.35;
   }
 
+  /* ───────────────────────────── color del producto ─────────────────────── */
+
+  // Nombre en español del color de un píxel (RGB 0-255)
+  function colorNameOf(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    const v = mx, sat = mx === 0 ? 0 : d / mx;
+    let h = 0;
+    if (d > 0) {
+      if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    if (v < 0.2) return 'Negro';
+    if (sat < 0.12) return v > 0.86 ? 'Blanco' : v > 0.62 ? 'Gris claro' : v > 0.25 ? 'Gris' : 'Negro';
+    if (h >= 345 || h < 15) return v < 0.5 ? 'Burdeos' : (sat < 0.5 && v > 0.75) ? 'Rosa' : 'Rojo';
+    if (h < 45) return (sat < 0.3 && v > 0.78) ? 'Crema' : v < 0.55 ? 'Marrón' : sat < 0.5 ? 'Beige' : h < 30 ? 'Naranja' : 'Mostaza';
+    if (h < 70) return sat < 0.3 ? 'Crema' : v < 0.55 ? 'Verde oliva' : 'Amarillo';
+    if (h < 165) return v < 0.4 ? 'Verde oscuro' : (sat < 0.4 && v > 0.6) ? 'Verde menta' : 'Verde';
+    if (h < 200) return sat < 0.35 && v > 0.7 ? 'Azul claro' : 'Turquesa';
+    if (h < 255) return v < 0.45 ? 'Azul marino' : (sat < 0.4 && v > 0.7) ? 'Azul claro' : 'Azul';
+    if (h < 290) return (sat < 0.4 && v > 0.7) ? 'Lila' : 'Morado';
+    return sat > 0.6 ? 'Fucsia' : 'Rosa';
+  }
+
+  /** Color dominante del objeto (y un segundo si ocupa >30 %): "Rojo", "Blanco y negro"… */
+  function dominantColor(rgba, alpha, w, h) {
+    const count = {}; let total = 0;
+    for (let p = 0; p < w * h; p += 3) {
+      if (alpha[p] < 240) continue;
+      const o = p * 4, name = colorNameOf(rgba[o], rgba[o + 1], rgba[o + 2]);
+      count[name] = (count[name] || 0) + 1; total++;
+    }
+    if (total < 50) return '';
+    const sorted = Object.entries(count).sort((a, b) => b[1] - a[1]);
+    // los grises/blancos/negros vecinos se tratan como distintos solo si son claramente distintos
+    const first = sorted[0][0];
+    const second = sorted.find(([n, c], i) => i > 0 && c / total > 0.3 && n !== first && !(/Gris/.test(n) && /Gris/.test(first)));
+    return second ? `${first} y ${second[0].toLowerCase()}` : first;
+  }
+
   /* ───────────────────────────── API principal ──────────────────────────── */
 
   /**
@@ -352,13 +392,13 @@
 
     // 4) composición
     const out = composeOnWhite(rgba, alpha, w, h, box, { size: opts.size, margin: opts.margin, flip });
-    return { rgba: out.rgba, size: out.size, flipped: flip, direction, method, warnings };
+    return { rgba: out.rgba, size: out.size, flipped: flip, direction, method, warnings, color: method === 'ninguno' ? '' : dominantColor(rgba, alpha, w, h) };
   }
 
   const ImgNorm = {
     MODEL_SIZE, DEFAULTS,
     resizeBilinear, preprocessU2, postprocessU2, aiAlpha, floodAlpha, keepMainBlobs,
-    alphaBox, toeDirection, composeOnWhite, flatBackgroundTrusted, normalize,
+    alphaBox, toeDirection, composeOnWhite, flatBackgroundTrusted, colorNameOf, dominantColor, normalize,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = ImgNorm;
