@@ -488,6 +488,57 @@ function parseGenericItem({ url, block }, base, categoryHint) {
   };
 }
 
+/* --------------- código fuente pegado (webs que bloquean al servidor, p. ej. JD) --------------- */
+
+function ldProducts(html, base) {
+  const out = [];
+  const walk = (n) => {
+    if (!n || typeof n !== 'object') return;
+    if (Array.isArray(n)) return n.forEach(walk);
+    const t = [].concat(n['@type'] || []).join(' ');
+    if (/Product/i.test(t) && n.name) {
+      const offer = [].concat(n.offers || [])[0] || {};
+      const price = parseNumber(offer.price ?? offer.lowPrice ?? (offer.priceSpecification || {}).price);
+      const img = [].concat(n.image || [])[0];
+      out.push({
+        title: decode(String(n.name)), image: img ? absUrl(typeof img === 'string' ? img : img.url || '', base) : '',
+        url: n.url ? absUrl(n.url, base) : (offer.url ? absUrl(offer.url, base) : ''),
+        price: price > 0 ? price : null,
+        brand: typeof n.brand === 'string' ? n.brand : (n.brand && n.brand.name) || '',
+      });
+    }
+    for (const k of ['itemListElement', 'item', '@graph', 'mainEntity']) if (n[k]) walk(n[k]);
+  };
+  for (const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { walk(JSON.parse(m[1].trim())); } catch { /* bloque inválido */ }
+  }
+  return out;
+}
+
+function parsePastedHtml(html, target) {
+  const base = target.href;
+  const hint = decodeURIComponent(target.pathname);
+  const products = [], seen = new Set();
+  const push = (p) => {
+    const key = p.url || p.title;
+    if (!p.title || seen.has(key)) return;
+    seen.add(key);
+    const price = Number(p.price) > 0 ? Number(p.price) : null;
+    products.push(withPanelFields({
+      id: '', sku: '', title: p.title, price, regular_price: p.regular_price || price, sale_price: p.sale_price || null,
+      price_text: price != null ? String(price) : '', currency: 'EUR', image: p.image || '', url: p.url || '',
+      brand: p.brand || matchKnownBrand(p.title) || '', in_stock: true,
+    }, p.url || base, hint));
+  };
+  ldProducts(html, base).filter((p) => p.price || p.image).forEach(push);
+  if (products.length < 2) {
+    const items = extractLoopItems(html);
+    if (items.length) items.forEach((it) => push(parseLoopItem(it, base, hint)));
+    else extractGenericItems(html, base).forEach((it) => push(parseGenericItem(it, base, hint)));
+  }
+  return products;
+}
+
 /* ------------------------------- Yupoo --------------------------------- */
 // Álbumes de proveedores (xxx.x.yupoo.com/albums): cada álbum = un producto con varias fotos.
 
@@ -710,6 +761,12 @@ export async function handleScrape(request) {
     HARD_MAX_PAGES
   );
 
+  if (typeof body.html === 'string' && body.html.length > 500) {
+    const products = parsePastedHtml(body.html.slice(0, 12_000_000), target);
+    if (!products.length) return json({ error: 'No se encontraron productos en el código pegado. Copia el código fuente de una página de listado (Ctrl+U en el navegador).' }, 422);
+    return json({ is_category: true, via: 'pasted', source_url: target.href, count: products.length, pages: 1, has_more_pages: false, next_page: 0, products });
+  }
+
   if (isYupooHost(target.hostname)) {
     try { return json(await yupooScrape(target, parseInt(body.start_page, 10) || 0, Math.min(maxPages, 5))); }
     catch (e) {
@@ -827,7 +884,8 @@ export async function handleScrape(request) {
     }
     return json({ is_category: false, ...product, products: [product] });
   } catch (err) {
-    return json({ error: 'Error en el servidor: ' + (err.message || 'scraping fallido') }, 502);
+    const m = String(err.message || 'scraping fallido');
+    return json({ error: 'Error en el servidor: ' + m + (/HTTP (403|401|5\d\d)/.test(m) && /jdsports|zalando|footlocker|zara|nike\.|adidas\./i.test(target.hostname) ? '. Esta web bloquea al servidor: usa el recuadro "Pegar código de la página".' : '') }, 502);
   }
 }
 
