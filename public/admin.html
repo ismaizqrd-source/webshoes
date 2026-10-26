@@ -1055,8 +1055,8 @@ async function startImport() {
         srcImage: s.image || '', blob: null, preview: s.image || '', flipped: false,
         status: exact ? 'dup' : 'pending',
         note: exact ? (hit.ref === 'batch' ? 'Repetido en esta importación: ' : hit.kind === 'same' ? 'Ya importado desde este link: ' : 'Ya existe: ') + hit.title : '',
-        similar: hit && hit.kind === 'variant' ? 'Mismo nombre que otro producto (¿otro color?): ' + hit.title : hit && hit.kind === 'similar' ? 'Parecido a: ' + hit.title : '',
-        on: !exact,
+        similar: s.football && !exact ? 'Camiseta de fútbol: viene desmarcada (márcala si la quieres)' : hit && hit.kind === 'variant' ? 'Mismo nombre que otro producto (¿otro color?): ' + hit.title : hit && hit.kind === 'similar' ? 'Parecido a: ' + hit.title : '',
+        on: !exact && !s.football,
       };
     });
     renderImport();

@@ -857,19 +857,22 @@ const CAT_LABEL={'Calzado':'Zapatillas','Ropa':'Ropa','Accesorios':'Accesorios',
 const CAT_ORDER=['Calzado','Ropa','Accesorios','Electrónica'];
 const catLabel=c=>CAT_LABEL[c]||c;
 const hasImg=p=>p.image&&!/_placeholder/.test(p.image);
+// Las camisetas de fútbol no se destacan en la portada (siguen en su categoría y en el catálogo)
+const isFootball=p=>/f[uú]tbol|football|soccer|\b(real madrid|barcelona|bar[cç]a|atl[eé]tico de madrid|manchester (united|city)|liverpool|chelsea|arsenal|juventus|milan|psg|bayern|dortmund|selecci[oó]n)\b.*\b(camiseta|jersey|shirt|kit|home|away|local|visitante|tercera)\b|\b\d{2}[\/-]\d{2}\b.*\b(home|away|local|visitante|tercera|third)\b/i.test(p.title||'');
+const featurable=p=>hasImg(p)&&!isFootball(p);
 const discPct=p=>p.compare_price&&p.compare_price>p.price?(1-p.price/p.compare_price):0;
 
 // Más vendidos: los marcados como tal en el panel; si hay pocos, se completan con los de mayor descuento
 function bestList(){
-  const flagged=P.filter(p=>p.bestseller&&hasImg(p));
+  const flagged=P.filter(p=>p.bestseller&&featurable(p));
   if(flagged.length>=8) return flagged.slice(0,16);
   const out=[...flagged], ids=new Set(out.map(p=>p.id));
   const add=p=>{ if(out.length<12&&!ids.has(p.id)){ ids.add(p.id); out.push(p); } };
   // 1) los de mayor descuento
-  P.filter(p=>hasImg(p)&&discPct(p)>0).sort((a,b)=>discPct(b)-discPct(a)).slice(0,12).forEach(add);
+  P.filter(p=>featurable(p)&&discPct(p)>0).sort((a,b)=>discPct(b)-discPct(a)).slice(0,12).forEach(add);
   // 2) si aún faltan (nada marcado ni con descuento), un producto de cada categoría por turnos, lo último añadido
   if(out.length<8){
-    const lists=catsPresent().map(c=>P.filter(p=>(p.cat||'Calzado')===c&&hasImg(p)).reverse());
+    const lists=catsPresent().map(c=>P.filter(p=>(p.cat||'Calzado')===c&&featurable(p)).reverse());
     for(let i=0;out.length<12&&i<12;i++) lists.forEach(l=>{ if(l[i]) add(l[i]); });
   }
   return out;
@@ -897,7 +900,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 function renderCatTiles(){
   document.getElementById('catTiles').innerHTML=catsPresent().slice(0,4).map(c=>{
     const list=P.filter(p=>(p.cat||'Calzado')===c);
-    const pick=list.find(p=>p.bestseller&&hasImg(p))||list.find(hasImg)||list[0];
+    const pick=list.find(p=>p.bestseller&&featurable(p))||list.find(featurable)||list[0];
     return `<div class="cat-tile" onclick="showCat('${jsq(c)}')">${pick?`<img src="${esc(pick.image)}" alt="" loading="lazy">`:''}
       <div class="lbl"><b>${esc(catLabel(c))}</b><span>${list.length} productos</span></div></div>`;
   }).join('');
@@ -908,7 +911,8 @@ function renderCatRows(){
     const list=P.filter(p=>(p.cat||'Calzado')===c);
     if(!list.length) return '';
     // primero los más vendidos de la categoría, luego lo último añadido
-    const shown=[...list.filter(p=>p.bestseller),...list.filter(p=>!p.bestseller).reverse()].slice(0,8);
+    const pool=list.filter(p=>!isFootball(p));
+    const shown=[...pool.filter(p=>p.bestseller),...pool.filter(p=>!p.bestseller).reverse()].slice(0,8);
     const brands=topBrands(list,6).map(b=>`<button class="fb" onclick="showBrand('${jsq(b)}')">${esc(b)}</button>`).join('');
     return `<div class="home-sec">
       <div class="sec-head"><div><span class="sec-ttl">${esc(catLabel(c))}</span><span class="sec-cnt">${list.length} productos</span></div>
