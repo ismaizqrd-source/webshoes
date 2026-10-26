@@ -252,6 +252,35 @@
     return { rgba: out, size, drawn: { x: ox, y: oy, w: dw, h: dh } };
   }
 
+  /**
+   * ¿Se puede fiar del recorte por color de fondo (rápido, ~60 ms) sin pasar por la IA (~1 s)?
+   * Sí cuando el fondo es liso, el objeto tiene forma de zapatilla (no un rectángulo lleno),
+   * ocupa un tamaño normal y no es casi blanco (zapatillas blancas sobre fondo blanco se "escapan").
+   */
+  function flatBackgroundTrusted(rgba, w, h, alpha) {
+    // 1) fondo liso: desviación de los píxeles del borde respecto a su mediana
+    const ring = [];
+    const add = (x, y) => { const o = (y * w + x) * 4; ring.push(rgba[o], rgba[o + 1], rgba[o + 2]); };
+    for (let x = 0; x < w; x += 3) { add(x, 0); add(x, h - 1); }
+    for (let y = 0; y < h; y += 3) { add(0, y); add(w - 1, y); }
+    const n = ring.length / 3, med = [0, 1, 2].map((c) => { const v = []; for (let i = 0; i < n; i++) v.push(ring[i * 3 + c]); return v.sort((a, b) => a - b)[n >> 1]; });
+    let dev = 0;
+    for (let i = 0; i < n; i++) dev += Math.abs(ring[i * 3] - med[0]) + Math.abs(ring[i * 3 + 1] - med[1]) + Math.abs(ring[i * 3 + 2] - med[2]);
+    dev /= n * 3;
+    if (dev > 4) return false;
+    // 2) forma y tamaño del objeto, y cuánto blanco hay dentro
+    let fg = 0, white = 0, x0 = w, x1 = -1, y0 = h, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y * w + x;
+      if (alpha[k] <= 128) continue;
+      fg++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      const o = k * 4; if (Math.min(rgba[o], rgba[o + 1], rgba[o + 2]) > 215) white++;
+    }
+    if (!fg) return false;
+    const frac = fg / (w * h), bw = (x1 - x0 + 1) / w, fill = fg / ((x1 - x0 + 1) * (y1 - y0 + 1));
+    return frac >= 0.08 && frac <= 0.32 && bw >= 0.4 && fill < 0.8 && white / fg < 0.35;
+  }
+
   /* ───────────────────────────── API principal ──────────────────────────── */
 
   /**
@@ -260,6 +289,7 @@
    * @param {number} w,h              tamaño
    * @param {object} opts
    *   ort, session   onnxruntime-web y sesión del modelo (opcional; sin ellos se usa flood fill)
+   *   fast           true: usa el recorte por color cuando el fondo es liso y fiable (sin IA)
    *   orient         true: girar para que la punta mire a la derecha (calzado)
    *   forceFlip      true/false para forzar el espejo (botón manual); null = automático
    *   size, margin   tamaño final (900) y margen (0.07)
@@ -280,6 +310,12 @@
       for (let p = 0; p < alpha.length; p++) alpha[p] = rgba[p * 4 + 3];
       method = 'transparencia';
     }
+    // Modo rápido: si el fondo es liso y el recorte por color es fiable, no hace falta la IA
+    let flood = null;
+    if (!alpha && opts.fast) {
+      flood = floodAlpha(rgba, w, h);
+      if (flatBackgroundTrusted(rgba, w, h, keepMainBlobs(flood, w, h))) { alpha = flood; method = 'color'; }
+    }
     if (!alpha && opts.ort && opts.session) {
       try { alpha = await aiAlpha(opts.ort, opts.session, rgba, w, h); method = 'ia'; }
       catch (e) { warnings.push('Falló el recorte con IA: ' + (e.message || e)); }
@@ -290,7 +326,7 @@
       if (f < 0.02 || f > 0.9) { warnings.push('El recorte con IA no parece correcto; se usa el color del fondo.'); alpha = null; }
     }
     if (!alpha) {
-      alpha = floodAlpha(rgba, w, h);
+      alpha = flood || floodAlpha(rgba, w, h);
       method = 'color';
       const f = fraction(alpha);
       if (f < 0.02 || f > 0.9) {
@@ -322,7 +358,7 @@
   const ImgNorm = {
     MODEL_SIZE, DEFAULTS,
     resizeBilinear, preprocessU2, postprocessU2, aiAlpha, floodAlpha, keepMainBlobs,
-    alphaBox, toeDirection, composeOnWhite, normalize,
+    alphaBox, toeDirection, composeOnWhite, flatBackgroundTrusted, normalize,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = ImgNorm;
