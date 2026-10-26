@@ -792,6 +792,29 @@ async function uploadBlob(blob) {
   return r.url;
 }
 
+// Las fotos terminadas se escriben en lotes (una sola escritura cada vez), nunca varias a la vez:
+// el servidor guarda la lista entera, así que escrituras simultáneas se pisarían entre sí.
+const patchQ = { items: [], running: false };
+function queuePatch(id, fields) {
+  const done = new Promise((resolve, reject) => patchQ.items.push({ id, fields, resolve, reject }));
+  if (!patchQ.running) { patchQ.running = true; flushPatches(); }
+  return done;                       // se resuelve cuando SU lote ya está escrito
+}
+async function flushPatches() {
+  await wait(150);                   // junta las que terminen a la vez
+  while (patchQ.items.length) {
+    const batch = patchQ.items.splice(0, 200);
+    try {
+      for (let t = 0; ; t++) {
+        try { await api('/api/products/patch', { method: 'POST', body: { updates: batch.map(({ id, fields }) => ({ id, fields })) } }); break; }
+        catch (e) { if (t >= 3) throw e; await wait(1000 * (t + 1)); }
+      }
+      batch.forEach((x) => x.resolve());
+    } catch (e) { batch.forEach((x) => x.reject(e)); }
+  }
+  patchQ.running = false;
+}
+
 // Procesa la lista con varias fotos a la vez (descarga, recorte, subida se solapan)
 const CONCURRENCY = 4;
 async function pool(list, worker, shouldStop) {
@@ -871,7 +894,7 @@ async function runUnify() {
     try {
       const r = await processImage(p.image, { orient: shouldOrient(p), useAI, fast: $('unFast').checked });
       const url = await uploadBlob(r.blob);
-      await api('/api/products/' + encodeURIComponent(p.id), { method: 'PUT', body: { product: { image: url } } });
+      await queuePatch(p.id, { image: url });
       URL.revokeObjectURL(r.previewUrl);
       ok++;
       if (r.warnings.length) log(`⚠ ${p.title}: ${r.warnings.join(' ')}`);
@@ -893,6 +916,8 @@ async function runUnify() {
 let imp = [];            // tarjetas de importación
 let impCancel = false, impRunning = false;
 const DEFAULT_SIZES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
+// Tallas por defecto según la categoría (calzado, ropa; accesorios y electrónica no llevan)
+const defaultSizes = (cat) => (cat === 'Ropa' ? ['S', 'M', 'L', 'XL', 'XXL'] : cat === 'Accesorios' || cat === 'Electrónica' ? [] : DEFAULT_SIZES);
 
 async function scrapeCall(payload) {
   const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -911,6 +936,7 @@ async function startImport() {
     const wanted = parseInt($('impPages').value, 10) || 1;   // páginas a cargar
     const PER_CALL = 5;                                      // páginas por petición (límite de subrequests)
     let data = await scrapeCall({ url, max_pages: Math.min(wanted, PER_CALL) });
+    const via = data.via || '';   // 'store-api' (100 por página) o 'html': las siguientes tandas usan el mismo método
     let items;
     if (!data.is_category) items = [data];
     else {
@@ -922,7 +948,7 @@ async function startImport() {
         btn.innerHTML = `<span class="spinner"></span> Páginas ${loaded}${total ? ' de ' + total : ''}… (${items.length} productos)`;
         let nd;
         try {
-          nd = await scrapeCall({ url, start_page: data.next_page, max_pages: Math.min(wanted - loaded, PER_CALL) });
+          nd = await scrapeCall({ url, via, start_page: data.next_page, max_pages: Math.min(wanted - loaded, PER_CALL) });
         } catch (e) { nd = null; }
         if (!nd || (nd.rate_limited && !nd.pages)) {
           // La tienda pide ir más despacio (429): espera y reintenta la misma tanda
@@ -949,7 +975,7 @@ async function startImport() {
       return {
         i, title: s.title || 'Producto importado', brand: s.brand || '', cat: s.category_guess || 'Calzado',
         price, compare_price: reg > price && price > 0 ? reg : null,
-        sizes: s.sizes && s.sizes.length ? s.sizes : DEFAULT_SIZES,
+        sizes: s.sizes && s.sizes.length ? s.sizes : defaultSizes(s.category_guess),
         srcImage: s.image || '', blob: null, preview: s.image || '', flipped: false,
         status: dup ? 'dup' : 'pending', note: dup ? 'Ya existe en la tienda' : '', on: !dup,
       };
@@ -972,7 +998,7 @@ function renderImport() {
         <button class="btn sm ghost" onclick="impFlip(${c.i})" ${c.status === 'working' ? 'disabled' : ''} title="Girar la foto">↔ Girar</button></div>
       <img class="pic" src="${esc(c.preview)}" alt="" loading="lazy">
       <div class="t">${esc(c.title)}</div>
-      <div class="m">${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
+      <div class="m">${esc(c.cat)} · ${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
       <div class="st ${st[0]}">${esc(st[1])}${c.status === 'warn' && c.note ? '' : ''}</div>
     </div>`;
   }).join('');
@@ -1054,7 +1080,7 @@ async function finishBackground(c) {
   try {
     if (c.blob && c.productId) {
       const url = await uploadBlob(c.blob);
-      await api('/api/products/' + encodeURIComponent(c.productId), { method: 'PUT', body: { product: { image: url } } });
+      await queuePatch(c.productId, { image: url });
       bg.done++;
     } else bg.fail++;
   } catch (e) { bg.fail++; }
