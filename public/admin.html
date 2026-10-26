@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
 <title>Panel Admin — Resell Your Order</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -28,24 +29,25 @@ aside{background:var(--ink);color:#eee;padding:1.5rem 0;position:sticky;top:0;he
 .brand{padding:0 1.25rem 1.5rem;border-bottom:1px solid #2a2a2a;margin-bottom:1rem}
 .brand .disp{font-size:20px;letter-spacing:3px}
 .brand small{display:block;font-size:9px;letter-spacing:2px;color:#888;margin-top:2px;text-transform:uppercase}
-.nav-item{display:flex;align-items:center;gap:.6rem;padding:.7rem 1.25rem;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:#999;border-left:2px solid transparent;transition:all .15s}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.7rem 1.25rem;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:#999;border-left:2px solid transparent;transition:all .15s;cursor:pointer}
 .nav-item:hover{color:#fff;background:#151515}
 .nav-item.active{color:#fff;border-left-color:#fff;background:#151515}
 .nav-item svg{width:15px;height:15px;flex-shrink:0}
 .nav-spacer{flex:1}
 .nav-foot{padding:1rem 1.25rem;border-top:1px solid #2a2a2a;font-size:10px;color:#777}
-.site-link{display:flex;align-items:center;gap:.4rem;padding:.6rem 1.25rem;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#888}
+.site-link{display:flex;align-items:center;gap:.4rem;padding:.6rem 1.25rem;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#888;text-decoration:none}
 .site-link:hover{color:#fff}
 
-main{padding:2rem 2.5rem 6rem;max-width:1400px}
+main{padding:2rem 2.5rem 6rem;max-width:1400px;min-width:0}
 .view{display:none}
 .view.active{display:block;animation:fadeIn .25s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .view-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem}
 .view-head h1{font-size:34px}
 .view-head p{color:var(--gray);font-size:13px;margin-top:2px}
+.head-actions{display:flex;gap:.5rem;flex-wrap:wrap}
 
-/* ── LOGIN SCREEN ── */
+/* ── LOGIN ── */
 #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
 .login-box{width:100%;max-width:380px;background:var(--bg);padding:2.5rem 2rem;border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,0.05)}
 .login-box .disp{font-size:30px;letter-spacing:2px;margin-bottom:.25rem;text-align:center}
@@ -53,10 +55,12 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px}
 .field{margin-bottom:1rem}
 .field label{display:block;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:var(--gray);margin-bottom:.4rem}
 .field input,.field select{width:100%;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;color:var(--ink);outline:none}
-.field input:focus{border-color:var(--ink)}
+.field input:focus,.field select:focus{border-color:var(--ink)}
+.field small{display:block;font-size:11px;color:var(--gray2);margin-top:.3rem}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.7rem 1.4rem;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;border-radius:var(--radius);border:1px solid var(--ink);background:var(--ink);color:#fff;transition:all .15s}
 .btn:hover{background:#000}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.ghost{background:transparent;color:var(--ink)}
 .btn.ghost:hover{background:var(--bg3)}
 .btn.danger{background:var(--red);border-color:var(--red)}
@@ -65,50 +69,90 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px}
 .btn.block{width:100%}
 .err-box{background:var(--red-bg);color:var(--red);padding:.75rem 1rem;border-radius:var(--radius);font-size:12px;margin-bottom:1rem;display:none}
 .err-box.on{display:block}
+.note{background:var(--amber-bg);color:var(--amber);padding:.7rem 1rem;font-size:12px;border-radius:var(--radius);margin-bottom:1rem}
 
-/* ── TABLES & TOOLBARS ── */
+/* ── TABLAS ── */
 .toolbar{display:flex;gap:.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
 .toolbar input[type=search]{flex:1;min-width:180px;padding:.6rem .8rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;outline:none}
-
+.toolbar select{padding:.6rem .6rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;background:#fff}
+.selbar{display:none;align-items:center;gap:.6rem;background:var(--ink);color:#fff;padding:.55rem .9rem;margin-bottom:1rem;font-size:12px;flex-wrap:wrap}
+.selbar.on{display:flex}
+.selbar .btn{border-color:#fff}
+.selbar .btn.ghost{color:#fff}
+.selbar .btn.ghost:hover{background:#222}
+.tablewrap{overflow-x:auto;background:var(--bg)}
 table{width:100%;border-collapse:collapse;background:var(--bg)}
 thead th{text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);padding:.6rem .7rem;border-bottom:1px solid var(--ink);white-space:nowrap}
-tbody td{padding:.55rem .7rem;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle}
+tbody td{padding:.5rem .7rem;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle}
 tbody tr:hover{background:var(--bg2)}
-.pthumb{width:40px;height:40px;object-fit:contain;background:var(--bg3);border:1px solid var(--border)}
+tbody tr.sel{background:#f0f4ff}
+.pthumb{width:44px;height:44px;object-fit:contain;background:#fff;border:1px solid var(--border)}
+.tag{display:inline-block;font-size:9px;letter-spacing:1px;text-transform:uppercase;font-weight:700;padding:.15rem .4rem;border-radius:2px;background:var(--bg3);color:var(--gray)}
+.tag.ok{background:var(--green-bg);color:var(--green)}
+.tag.warn{background:var(--amber-bg);color:var(--amber)}
+.old{color:var(--gray2);text-decoration:line-through;font-size:11px;margin-left:.3rem}
+.actions{white-space:nowrap}
+.empty{padding:3rem;text-align:center;color:var(--gray)}
 
-/* ── MODAL & IMPORT ── */
+/* ── MODALES ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(10,10,10,.5);z-index:500;align-items:flex-start;justify-content:center;padding:3rem 1rem;overflow-y:auto}
 .overlay.on{display:flex}
 .modal{background:var(--bg);width:100%;max-width:640px;border-radius:var(--radius);padding:2rem}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
 .modal-head h2{font-size:24px}
+.modal-head .x{cursor:pointer;font-size:18px;padding:0 .3rem}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;flex-wrap:wrap}
+.radios{display:flex;gap:1rem;flex-wrap:wrap;font-size:13px;margin-bottom:1rem}
+.radios label{display:flex;align-items:center;gap:.35rem;cursor:pointer}
+.sect{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:18px;margin:1.2rem 0 .6rem;padding-top:1rem;border-top:1px solid var(--border)}
+.editimg{display:flex;gap:1rem;align-items:center;margin-bottom:1rem}
+.editimg img{width:120px;height:120px;object-fit:contain;border:1px solid var(--border);background:#fff}
+.editimg .col{display:flex;flex-direction:column;gap:.5rem;align-items:flex-start}
 
-.import-box{max-width:640px}
-.import-result{border:1px solid var(--border);padding:1.5rem;margin-top:1.5rem;display:none;background:var(--bg)}
-.import-result.on{display:block}
-.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+/* ── PROGRESO ── */
+.bar{height:8px;background:var(--bg3);margin:1rem 0 .5rem;border-radius:4px;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--ink);transition:width .2s}
+.logbox{max-height:160px;overflow:auto;font-size:11px;color:var(--gray);background:var(--bg2);padding:.5rem .7rem;margin-top:.7rem;white-space:pre-wrap}
+
+/* ── IMPORTADOR ── */
+.import-box{max-width:720px}
+.opts{display:flex;flex-direction:column;gap:.5rem;margin:1rem 0 1.2rem;font-size:13px}
+.opts label{display:flex;align-items:flex-start;gap:.5rem;cursor:pointer}
+.opts small{color:var(--gray2);display:block;font-size:11px}
+.import-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:1.2rem 0}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1rem}
+.icard{background:var(--bg);border:1px solid var(--border);padding:.7rem;display:flex;flex-direction:column;gap:.45rem;position:relative}
+.icard.off{opacity:.5}
+.icard .pic{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;border:1px solid var(--border)}
+.icard .t{font-size:12px;font-weight:600;line-height:1.3;min-height:2.6em}
+.icard .m{font-size:11px;color:var(--gray)}
+.icard .st{font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:700}
+.icard .st.ok{color:var(--green)}.icard .st.warn{color:var(--amber)}.icard .st.err{color:var(--red)}
+.icard .row{display:flex;gap:.4rem;align-items:center;justify-content:space-between}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.spinner.dark{border-color:rgba(0,0,0,.15);border-top-color:#000}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:900;display:flex;flex-direction:column;gap:.5rem}
+.toast{background:var(--ink);color:#fff;padding:.7rem 1rem;font-size:12px;border-radius:var(--radius);max-width:360px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.toast.err{background:var(--red)}
+@media(max-width:900px){#app.on{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;padding:.5rem}main{padding:1.2rem}.brand{display:none}.nav-spacer,.nav-foot{display:none}}
 </style>
 </head>
 <body>
 
-<!-- ═══ LOGIN SCREEN ═══ -->
+<!-- ═══ LOGIN ═══ -->
 <div id="loginScreen">
   <div class="login-box">
     <div class="disp">ADMIN LOGIN</div>
     <div class="sub">Panel de gestión interna de la tienda</div>
     <div class="err-box" id="loginErr">Usuario o contraseña incorrectos.</div>
     <form id="loginForm" onsubmit="handleLogin(event)">
-      <div class="field">
-        <label>Usuario</label>
-        <input type="text" id="loginUser" required placeholder="admin">
-      </div>
-      <div class="field">
-        <label>Contraseña</label>
-        <input type="password" id="loginPass" required placeholder="••••••••">
-      </div>
-      <button type="submit" class="btn block" style="margin-top: 1rem;">Acceder al panel</button>
+      <div class="field"><label>Usuario</label><input type="text" id="loginUser" required placeholder="admin"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="loginPass" required placeholder="••••••••"></div>
+      <button type="submit" class="btn block" style="margin-top:1rem;">Acceder al panel</button>
     </form>
   </div>
 </div>
@@ -116,10 +160,7 @@ tbody tr:hover{background:var(--bg2)}
 <!-- ═══ APP ═══ -->
 <div id="app">
   <aside>
-    <div class="brand">
-      <div class="disp">RYO PANEL</div>
-      <small>Cloudflare Cloud System</small>
-    </div>
+    <div class="brand"><div class="disp">RYO PANEL</div><small>Cloudflare Cloud System</small></div>
     <div class="nav-item active" data-view="products">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7 12 3 4 7v10l8 4 8-4V7z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg>
       Productos
@@ -128,55 +169,114 @@ tbody tr:hover{background:var(--bg2)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
       Importar por link
     </div>
+    <div class="nav-item" data-view="coupons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+      Cupones
+    </div>
     <div class="nav-spacer"></div>
     <a class="site-link" href="/" target="_blank">↗ Ver tienda</a>
     <div class="nav-foot"><span onclick="logout()" style="text-decoration:underline;cursor:pointer;color:#ccc">Cerrar sesión</span></div>
   </aside>
 
   <main>
-    <!-- PRODUCTS VIEW -->
+    <!-- ───── PRODUCTOS ───── -->
     <div class="view active" id="view-products">
       <div class="view-head">
-        <div><h1>Inventario</h1><p><span id="prodCount">0</span> productos cargados</p></div>
-        <button class="btn" onclick="openModal()">+ Añadir producto</button>
+        <div><h1>Inventario</h1><p><span id="prodCount">0</span> de <span id="prodTotal">0</span> productos · los cambios se ven en la tienda al momento</p></div>
+        <div class="head-actions">
+          <button class="btn ghost" onclick="openBulk()">Editar todo</button>
+          <button class="btn ghost" onclick="openUnify()">Unificar fotos</button>
+          <button class="btn" onclick="openModal()">+ Añadir producto</button>
+        </div>
       </div>
+      <div class="err-box" id="prodErr"></div>
       <div class="toolbar">
         <input type="search" id="searchBox" placeholder="Buscar por título o marca..." oninput="renderProducts()">
+        <select id="catFilter" onchange="renderProducts()"><option value="">Todas las categorías</option></select>
+        <select id="brandFilter" onchange="renderProducts()"><option value="">Todas las marcas</option></select>
+        <select id="photoFilter" onchange="renderProducts()">
+          <option value="">Todas las fotos</option>
+          <option value="unified">Fotos unificadas</option>
+          <option value="pending">Fotos sin unificar</option>
+        </select>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Imagen</th>
-            <th>Título</th>
-            <th>Marca</th>
-            <th>Categoría</th>
-            <th>Precio</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="prodTbody"></tbody>
-      </table>
+      <div class="selbar" id="selbar">
+        <span><b id="selCount">0</b> seleccionados</span>
+        <button class="btn sm ghost" onclick="openBulk('selected')">Editar seleccionados</button>
+        <button class="btn sm ghost" onclick="openUnify('selected')">Unificar fotos</button>
+        <button class="btn sm danger" onclick="deleteSelected()">Eliminar</button>
+        <button class="btn sm ghost" onclick="clearSel()">Quitar selección</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30px"><input type="checkbox" id="selAll" onchange="toggleAll(this.checked)"></th>
+              <th>Imagen</th><th>Título</th><th>Marca</th><th>Categoría</th><th>Precio</th><th>Tallas</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="prodTbody"></tbody>
+        </table>
+      </div>
+      <p style="margin-top:1.5rem;font-size:11px;color:var(--gray2)">
+        <span style="text-decoration:underline;cursor:pointer" onclick="resetCatalog()">Restaurar los productos originales de la tienda</span>
+      </p>
     </div>
 
-    <!-- IMPORT VIEW -->
+    <!-- ───── IMPORTAR ───── -->
     <div class="view" id="view-import">
       <div class="view-head">
-        <div><h1>Importador en la Nube</h1><p>Raspa productos individuales o categorías enteras de Avviishop</p></div>
+        <div><h1>Importador en la Nube</h1><p>Importa productos sueltos o categorías enteras de Avviishop con las fotos unificadas</p></div>
       </div>
       <div class="import-box">
         <div class="field">
-          <label>URL del producto o categoría (ej: Avviishop)</label>
+          <label>URL del producto o categoría</label>
           <input id="importUrl" placeholder="https://avviishop.com/producto/... o /categoria-producto/...">
         </div>
-        <button class="btn" id="btnImport" onclick="importFromCloudflare()">Extraer datos desde Cloudflare</button>
-
-        <div class="import-result" id="importResult">
-          <h3 id="impTitle"></h3>
-          <p id="impMeta" style="color:var(--gray); margin-top:5px;"></p>
-          <img id="impImg" src="" style="width: 100px; height: 100px; object-fit: contain; background: #fff; margin: 15px 0; border:1px solid #ddd;">
-          <br>
-          <button class="btn" onclick="saveImportedProduct()">Añadir al inventario</button>
+        <div class="opts">
+          <label><input type="checkbox" id="optUnify" checked>
+            <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
+          <label><input type="checkbox" id="optAI" checked>
+            <span>Recorte con IA <small>Funciona en tu navegador (modelo de 4,5 MB, gratis). Sin él se recorta por el color del fondo, que falla con zapatillas blancas.</small></span></label>
         </div>
+        <button class="btn" id="btnImport" onclick="startImport()">Extraer datos desde Cloudflare</button>
+      </div>
+
+      <div id="importArea" class="hidden">
+        <div class="import-actions">
+          <b id="impSummary"></b>
+          <span id="impProgress" style="font-size:12px;color:var(--gray)"></span>
+          <span style="flex:1"></span>
+          <button class="btn ghost sm" id="btnImpCancel" onclick="cancelImport()">Cancelar proceso</button>
+          <button class="btn sm" id="btnImpSave" onclick="saveImport()">Guardar en la tienda</button>
+        </div>
+        <div class="bar"><i id="impBar"></i></div>
+        <div class="igrid" id="impGrid"></div>
+      </div>
+    </div>
+
+    <!-- ───── CUPONES ───── -->
+    <div class="view" id="view-coupons">
+      <div class="view-head">
+        <div><h1>Cupones</h1><p>Códigos de descuento que los clientes escriben en el pago (Stripe)</p></div>
+        <div class="head-actions"><button class="btn ghost" onclick="loadCoupons()">Actualizar</button></div>
+      </div>
+      <div class="note">Para que funcionen, el Worker necesita los secretos <b>ADMIN_KEY</b> y <b>STRIPE_SECRET_KEY</b> (Cloudflare → Settings → Variables and Secrets). Aquí escribes la misma ADMIN_KEY.</div>
+      <div class="err-box" id="coupErr"></div>
+      <div class="grid3" style="max-width:760px;align-items:end">
+        <div class="field"><label>Clave de administrador</label><input type="password" id="coupKey" placeholder="ADMIN_KEY" onchange="saveKey(this.value)"></div>
+        <div class="field"><label>Código</label><input id="coupCode" placeholder="VERANO10" style="text-transform:uppercase"></div>
+        <div class="field"><label>% de descuento</label><input type="number" id="coupPct" min="1" max="100" placeholder="10"></div>
+      </div>
+      <div style="display:flex;gap:.6rem;align-items:end;max-width:760px;margin-bottom:1.5rem">
+        <div class="field" style="flex:1;margin:0"><label>Usos máximos (opcional)</label><input type="number" id="coupMax" min="1" placeholder="Sin límite"></div>
+        <button class="btn" onclick="createCoupon()">Crear cupón</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Código</th><th>Descuento</th><th>Usos</th><th>Máximo</th><th>Acciones</th></tr></thead>
+          <tbody id="coupTbody"><tr><td colspan="5" class="empty">Pulsa «Actualizar» para cargar los cupones.</td></tr></tbody>
+        </table>
       </div>
     </div>
   </main>
@@ -185,223 +285,727 @@ tbody tr:hover{background:var(--bg2)}
 <!-- ═══ MODAL AÑADIR/EDITAR ═══ -->
 <div class="overlay" id="modalOverlay">
   <div class="modal">
-    <div class="modal-head">
-      <h2 id="modalTitle">Añadir producto</h2>
-      <div style="cursor:pointer;" onclick="closeModal()">✕</div>
-    </div>
-    <input type="hidden" id="editIdx">
+    <div class="modal-head"><h2 id="modalTitle">Añadir producto</h2><div class="x" onclick="closeModal()">✕</div></div>
+    <input type="hidden" id="editId">
     <div class="field"><label>Título</label><input id="f-title"></div>
     <div class="grid2">
       <div class="field"><label>Marca</label><input id="f-brand"></div>
-      <div class="field"><label>Categoría</label><input id="f-cat" value="Calzado"></div>
+      <div class="field"><label>Categoría</label><input id="f-cat" value="Calzado" list="catList"></div>
     </div>
-    <div class="field"><label>Precio (€)</label><input type="number" step="0.01" id="f-price"></div>
-    <div class="field"><label>Imagen URL</label><input id="f-image"></div>
-    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+    <div class="grid3">
+      <div class="field"><label>Precio (€)</label><input type="number" step="0.01" id="f-price"></div>
+      <div class="field"><label>Precio tachado (€)</label><input type="number" step="0.01" id="f-compare"><small>Opcional (oferta)</small></div>
+      <div class="field"><label>Coste (€)</label><input type="number" step="0.01" id="f-cost"><small>Solo para ti</small></div>
+    </div>
+    <div class="field"><label>Tallas</label><input id="f-sizes" placeholder="36, 37, 38, 39, 40"><small>Separadas por comas</small></div>
+    <div class="editimg">
+      <img id="f-preview" alt="">
+      <div class="col">
+        <div style="font-size:11px;color:var(--gray)" id="f-imginfo"></div>
+        <button class="btn sm ghost" id="btnUnifyOne" onclick="unifyOne(false)" type="button">Unificar esta foto</button>
+        <button class="btn sm ghost" id="btnUnifyFlip" onclick="unifyOne(true)" type="button">Unificar y girar</button>
+      </div>
+    </div>
+    <div class="field"><label>Imagen URL</label><input id="f-image" oninput="document.getElementById('f-preview').src=this.value"></div>
+    <label style="display:flex;gap:.5rem;align-items:center;font-size:13px"><input type="checkbox" id="f-best"> Destacar en «Más vendidos»</label>
+    <div class="modal-foot">
       <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn" onclick="saveProduct()">Guardar</button>
+      <button class="btn" id="btnSaveProd" onclick="saveProduct()">Guardar</button>
+    </div>
+  </div>
+</div>
+<datalist id="catList"></datalist>
+
+<!-- ═══ MODAL EDITAR TODO ═══ -->
+<div class="overlay" id="bulkOverlay">
+  <div class="modal">
+    <div class="modal-head"><h2>Editar todo</h2><div class="x" onclick="closeBulk()">✕</div></div>
+    <div class="sect" style="margin-top:0;padding-top:0;border:0">¿A qué productos?</div>
+    <div class="radios">
+      <label><input type="radio" name="bulkScope" value="selected"> Seleccionados (<span id="bulkNSel">0</span>)</label>
+      <label><input type="radio" name="bulkScope" value="filtered" checked> Los que se ven con el filtro (<span id="bulkNFil">0</span>)</label>
+      <label><input type="radio" name="bulkScope" value="all"> Todos (<span id="bulkNAll">0</span>)</label>
+    </div>
+    <div class="note" style="margin-bottom:1rem">Solo se cambian los campos que rellenes. Lo que dejes vacío se queda como está.</div>
+    <div class="grid2">
+      <div class="field"><label>Marca</label><input id="b-brand" placeholder="(sin cambios)"></div>
+      <div class="field"><label>Categoría</label><input id="b-cat" placeholder="(sin cambios)" list="catList"></div>
+    </div>
+    <div class="field"><label>Tallas (sustituye las actuales)</label><input id="b-sizes" placeholder="36, 37, 38, 39, 40, 41, 42"></div>
+    <div class="sect">Precio</div>
+    <div class="grid3">
+      <div class="field"><label>Precio fijo (€)</label><input type="number" step="0.01" id="b-price" placeholder="(sin cambios)"></div>
+      <div class="field"><label>Subir / bajar</label><input type="number" step="0.01" id="b-adjust" placeholder="Ej: -10"></div>
+      <div class="field"><label>Unidad</label><select id="b-mode"><option value="percent">%</option><option value="amount">€</option></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Precio tachado (€)</label><input type="number" step="0.01" id="b-compare" placeholder="(sin cambios)"></div>
+      <div class="field"><label>Coste (€)</label><input type="number" step="0.01" id="b-cost" placeholder="(sin cambios)"></div>
+    </div>
+    <label style="display:flex;gap:.5rem;align-items:center;font-size:13px;margin-bottom:1rem"><input type="checkbox" id="b-nocompare"> Quitar el precio tachado</label>
+    <div class="field"><label>Más vendidos</label>
+      <select id="b-best"><option value="">(sin cambios)</option><option value="1">Destacar</option><option value="0">Quitar destacado</option></select></div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeBulk()">Cancelar</button>
+      <button class="btn" id="btnBulk" onclick="applyBulk()">Aplicar cambios</button>
     </div>
   </div>
 </div>
 
+<!-- ═══ MODAL UNIFICAR FOTOS ═══ -->
+<div class="overlay" id="unifyOverlay">
+  <div class="modal">
+    <div class="modal-head"><h2>Unificar fotos</h2><div class="x" onclick="closeUnify()">✕</div></div>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:1rem">Rehace las fotos con fondo blanco, 900×900 y la zapatilla centrada con la punta a la derecha. Las originales no se tocan; el producto pasa a usar la foto nueva.</p>
+    <div class="radios">
+      <label><input type="radio" name="unScope" value="selected"> Seleccionados (<span id="unNSel">0</span>)</label>
+      <label><input type="radio" name="unScope" value="filtered" checked> Los que se ven con el filtro (<span id="unNFil">0</span>)</label>
+      <label><input type="radio" name="unScope" value="all"> Todos (<span id="unNAll">0</span>)</label>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="unOnlyPending" checked><span>Solo las que aún no estén unificadas <small>(<span id="unNPend">0</span> en este grupo)</small></span></label>
+      <label><input type="checkbox" id="unAI" checked><span>Recorte con IA <small>Mejor resultado; descarga un modelo de 4,5 MB la primera vez.</small></span></label>
+    </div>
+    <div id="unProg" class="hidden">
+      <div class="bar"><i id="unBar"></i></div>
+      <div id="unStatus" style="font-size:12px;color:var(--gray)"></div>
+      <div class="logbox" id="unLog"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnUnCancel" onclick="closeUnify()">Cerrar</button>
+      <button class="btn" id="btnUnStart" onclick="runUnify()">Empezar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/imgnorm.js"></script>
 <script>
+/* ════════════════════════════════════════════════════════════
+   Login actual (se mantiene tal cual)
+   ════════════════════════════════════════════════════════════ */
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "admin1234";
-
-let products = JSON.parse(localStorage.getItem('ryo_products')) || [];
-let currentScraped = null;
 
 function handleLogin(e) {
   e.preventDefault();
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value.trim();
-  const err = document.getElementById('loginErr');
-
   if (u === ADMIN_USER && p === ADMIN_PASS) {
     sessionStorage.setItem('ryo_logged', 'true');
     checkAuth();
   } else {
-    err.style.display = 'block';
+    document.getElementById('loginErr').style.display = 'block';
   }
 }
-
 function checkAuth() {
   if (sessionStorage.getItem('ryo_logged') === 'true') {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('app').classList.add('on');
-    renderProducts();
+    document.getElementById('coupKey').value = adminKey();
+    loadProducts();
   }
 }
+function logout() { sessionStorage.removeItem('ryo_logged'); location.reload(); }
 
-function logout() {
-  sessionStorage.removeItem('ryo_logged');
-  location.reload();
-}
-
-document.querySelectorAll('.nav-item').forEach(el=>{
+document.querySelectorAll('.nav-item').forEach(el => {
   el.onclick = () => {
-    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
     el.classList.add('active');
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    document.getElementById('view-'+el.dataset.view).classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + el.dataset.view).classList.add('active');
+    if (el.dataset.view === 'coupons' && !couponsLoaded) loadCoupons();
   };
 });
 
-function renderProducts() {
-  const tbody = document.getElementById('prodTbody');
-  const search = document.getElementById('searchBox').value.toLowerCase();
-  tbody.innerHTML = '';
+/* ════════════════════════════════════════════════════════════
+   Utilidades
+   ════════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = (n) => (Math.round(Number(n || 0) * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const filtered = products.filter(p => p.title.toLowerCase().includes(search));
-  document.getElementById('prodCount').textContent = filtered.length;
-
-  filtered.forEach((p, i) => {
-    tbody.innerHTML += `
-      <tr>
-        <td><img src="${p.image || ''}" class="pthumb"></td>
-        <td><strong>${p.title}</strong></td>
-        <td>${p.brand || '-'}</td>
-        <td>${p.cat || 'Calzado'}</td>
-        <td>${p.price} €</td>
-        <td>
-          <button class="btn sm ghost" onclick="editProd(${i})">Editar</button>
-          <button class="btn sm danger" onclick="deleteProd(${i})">Eliminar</button>
-        </td>
-      </tr>
-    `;
-  });
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type === 'err' ? ' err' : '');
+  el.textContent = msg;
+  $('toast').appendChild(el);
+  setTimeout(() => el.remove(), type === 'err' ? 7000 : 3500);
 }
+function showErr(id, msg) { const b = $(id); b.textContent = msg || ''; b.classList.toggle('on', !!msg); }
 
-function saveStorage() {
-  localStorage.setItem('ryo_products', JSON.stringify(products));
-}
+function adminKey() { return sessionStorage.getItem('ryo_admin_key') || ''; }
+function saveKey(v) { sessionStorage.setItem('ryo_admin_key', (v || '').trim()); }
 
-function openModal() {
-  document.getElementById('editIdx').value = '';
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-brand').value = '';
-  document.getElementById('f-price').value = '';
-  document.getElementById('f-image').value = '';
-  document.getElementById('modalOverlay').classList.add('on');
-}
-
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('on');
-}
-
-function saveProduct() {
-  const idx = document.getElementById('editIdx').value;
-  const p = {
-    title: document.getElementById('f-title').value,
-    brand: document.getElementById('f-brand').value,
-    cat: document.getElementById('f-cat').value,
-    price: parseFloat(document.getElementById('f-price').value) || 0,
-    image: document.getElementById('f-image').value
-  };
-
-  if (idx !== '') {
-    products[idx] = p;
-  } else {
-    products.push(p);
+/** fetch a la API con la clave de administrador (si existe) y reintento si pide clave. */
+async function api(path, opts = {}, canRetry = true) {
+  const { method = 'GET', body, raw, headers } = opts;
+  const h = { ...(headers || {}) };
+  const key = adminKey();
+  if (key) h['x-admin-key'] = key;
+  let payload;
+  if (raw !== undefined) payload = raw;
+  else if (body !== undefined) { h['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
+  const res = await fetch(path, { method, headers: h, body: payload });
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch { /* no es JSON */ }
+  if (res.status === 401 && canRetry) {
+    const k = prompt('Esta acción pide la clave de administrador (ADMIN_KEY):');
+    if (k) { saveKey(k); $('coupKey').value = k.trim(); return api(path, opts, false); }
   }
-
-  saveStorage();
-  closeModal();
-  renderProducts();
+  if (!res.ok) throw new Error((data && data.error) || `Error ${res.status}`);
+  return data || {};
 }
 
-function editProd(i) {
-  const p = products[i];
-  document.getElementById('editIdx').value = i;
-  document.getElementById('f-title').value = p.title;
-  document.getElementById('f-brand').value = p.brand;
-  document.getElementById('f-cat').value = p.cat;
-  document.getElementById('f-price').value = p.price;
-  document.getElementById('f-image').value = p.image;
-  document.getElementById('modalOverlay').classList.add('on');
-}
+/* ════════════════════════════════════════════════════════════
+   Productos
+   ════════════════════════════════════════════════════════════ */
+let products = [];
+let selected = new Set();
 
-function deleteProd(i) {
-  if (confirm('¿Eliminar producto?')) {
-    products.splice(i, 1);
-    saveStorage();
-    renderProducts();
-  }
-}
+const isUnified = (p) => /^\/api\/img\//.test(p.image || '');
 
-async function importFromCloudflare() {
-  const url = document.getElementById('importUrl').value.trim();
-  if(!url) return alert('Introduce un link válido');
-
-  const btn = document.getElementById('btnImport');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Extrayendo...';
-
+async function loadProducts() {
   try {
-    const res = await fetch('/api/scrape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    });
-    
-    const rawText = await res.text();
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch (parseErr) {
-      throw new Error(`Respuesta inválida del servidor: ${rawText.substring(0, 80)}`);
-    }
-
-    if(!res.ok || data.error) {
-      throw new Error(data.error || 'Error desconocido en el servidor');
-    }
-
-    if (data.is_category) {
-      if (!data.products || data.products.length === 0) {
-        throw new Error("No se encontraron productos en esta categoría.");
-      }
-      data.products.forEach(p => {
-        products.push({
-          title: p.title,
-          brand: p.brand,
-          cat: p.category_guess || 'Calzado',
-          price: p.price || 68.99,
-          image: p.image || ''
-        });
-      });
-      saveStorage();
-      renderProducts();
-      alert(`¡Se han importado ${data.products.length} productos de la categoría al inventario correctamente!`);
-      document.getElementById('importResult').classList.remove('on');
-      document.getElementById('importUrl').value = '';
-    } else {
-      currentScraped = data;
-      document.getElementById('impTitle').textContent = data.title;
-      document.getElementById('impMeta').textContent = `${data.brand} — ${data.price} €`;
-      document.getElementById('impImg').src = data.image;
-      document.getElementById('importResult').classList.add('on');
-    }
-  } catch(err) {
-    alert('Error al importar: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Extraer datos desde Cloudflare';
+    showErr('prodErr', '');
+    const d = await api('/api/products?full=1');
+    products = d.products || [];
+    selected = new Set([...selected].filter((id) => products.some((p) => p.id === id)));
+    fillFilters();
+    renderProducts();
+  } catch (e) {
+    showErr('prodErr', 'No se pudieron cargar los productos: ' + e.message);
   }
 }
 
-function saveImportedProduct() {
-  if(!currentScraped) return;
-  products.push({
-    title: currentScraped.title,
-    brand: currentScraped.brand,
-    cat: currentScraped.category_guess || 'Calzado',
-    price: currentScraped.price || 0,
-    image: currentScraped.image || ''
+function fillFilters() {
+  const keep = (id, vals, label) => {
+    const el = $(id), cur = el.value;
+    el.innerHTML = `<option value="">${label}</option>` + vals.map((v) => `<option>${esc(v)}</option>`).join('');
+    el.value = vals.includes(cur) ? cur : '';
+  };
+  const uniq = (k) => [...new Set(products.map((p) => p[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  keep('catFilter', uniq('cat'), 'Todas las categorías');
+  keep('brandFilter', uniq('brand'), 'Todas las marcas');
+  $('catList').innerHTML = uniq('cat').map((v) => `<option value="${esc(v)}">`).join('');
+}
+
+function filtered() {
+  const q = $('searchBox').value.trim().toLowerCase();
+  const cat = $('catFilter').value, brand = $('brandFilter').value, ph = $('photoFilter').value;
+  return products.filter((p) =>
+    (!q || (p.title || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)) &&
+    (!cat || p.cat === cat) && (!brand || p.brand === brand) &&
+    (!ph || (ph === 'unified') === isUnified(p)));
+}
+
+function renderProducts() {
+  const list = filtered();
+  $('prodCount').textContent = list.length;
+  $('prodTotal').textContent = products.length;
+  const tb = $('prodTbody');
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty">No hay productos que coincidan.</td></tr>';
+  } else {
+    tb.innerHTML = list.map((p) => `
+      <tr class="${selected.has(p.id) ? 'sel' : ''}">
+        <td><input type="checkbox" ${selected.has(p.id) ? 'checked' : ''} onchange="toggleSel('${esc(p.id)}',this.checked)"></td>
+        <td><img src="${esc(p.image)}" class="pthumb" loading="lazy" alt=""></td>
+        <td><strong>${esc(p.title)}</strong>${p.bestseller ? ' <span class="tag">Más vendido</span>' : ''}
+            <div style="margin-top:2px">${isUnified(p) ? '<span class="tag ok">Foto unificada</span>' : '<span class="tag warn">Foto sin unificar</span>'}</div></td>
+        <td>${esc(p.brand) || '-'}</td>
+        <td>${esc(p.cat) || '-'}</td>
+        <td>${eur(p.price)}${p.compare_price ? `<span class="old">${eur(p.compare_price)}</span>` : ''}</td>
+        <td>${(p.sizes || []).length ? esc((p.sizes || []).join(', ')) : '<span style="color:var(--gray2)">—</span>'}</td>
+        <td class="actions">
+          <button class="btn sm ghost" onclick="editProd('${esc(p.id)}')">Editar</button>
+          <button class="btn sm danger" onclick="deleteProd('${esc(p.id)}')">Eliminar</button>
+        </td>
+      </tr>`).join('');
+  }
+  $('selAll').checked = list.length > 0 && list.every((p) => selected.has(p.id));
+  $('selCount').textContent = selected.size;
+  $('selbar').classList.toggle('on', selected.size > 0);
+}
+
+function toggleSel(id, on) { on ? selected.add(id) : selected.delete(id); renderProducts(); }
+function toggleAll(on) { filtered().forEach((p) => (on ? selected.add(p.id) : selected.delete(p.id))); renderProducts(); }
+function clearSel() { selected.clear(); renderProducts(); }
+
+/* ── añadir / editar ── */
+function openModal() {
+  $('modalTitle').textContent = 'Añadir producto';
+  $('editId').value = '';
+  ['title', 'brand', 'price', 'compare', 'cost', 'sizes', 'image'].forEach((k) => ($('f-' + k).value = ''));
+  $('f-cat').value = 'Calzado';
+  $('f-best').checked = false;
+  $('f-preview').removeAttribute('src');
+  $('f-imginfo').textContent = '';
+  $('btnUnifyOne').disabled = $('btnUnifyFlip').disabled = true;
+  $('modalOverlay').classList.add('on');
+}
+function closeModal() { $('modalOverlay').classList.remove('on'); }
+
+function editProd(id) {
+  const p = products.find((x) => x.id === id);
+  if (!p) return;
+  $('modalTitle').textContent = 'Editar producto';
+  $('editId').value = p.id;
+  $('f-title').value = p.title || '';
+  $('f-brand').value = p.brand || '';
+  $('f-cat').value = p.cat || 'Calzado';
+  $('f-price').value = p.price ?? '';
+  $('f-compare').value = p.compare_price ?? '';
+  $('f-cost').value = p.cost ?? '';
+  $('f-sizes').value = (p.sizes || []).join(', ');
+  $('f-image').value = p.image || '';
+  $('f-best').checked = !!p.bestseller;
+  $('f-preview').src = p.image || '';
+  $('f-imginfo').textContent = isUnified(p) ? 'Foto unificada' : 'Foto sin unificar';
+  $('btnUnifyOne').disabled = $('btnUnifyFlip').disabled = false;
+  $('modalOverlay').classList.add('on');
+}
+
+function formProduct() {
+  return {
+    title: $('f-title').value.trim(),
+    brand: $('f-brand').value.trim(),
+    cat: $('f-cat').value.trim() || 'Calzado',
+    price: $('f-price').value === '' ? 0 : parseFloat($('f-price').value),
+    compare_price: $('f-compare').value === '' ? null : parseFloat($('f-compare').value),
+    cost: $('f-cost').value === '' ? 0 : parseFloat($('f-cost').value),
+    sizes: $('f-sizes').value.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean),
+    image: $('f-image').value.trim(),
+    bestseller: $('f-best').checked,
+  };
+}
+
+async function saveProduct() {
+  const id = $('editId').value;
+  const p = formProduct();
+  if (!p.title) return toast('Escribe el título.', 'err');
+  const btn = $('btnSaveProd'); btn.disabled = true;
+  try {
+    if (id) await api('/api/products/' + encodeURIComponent(id), { method: 'PUT', body: { product: p } });
+    else await api('/api/products', { method: 'POST', body: { product: p } });
+    closeModal();
+    toast('Producto guardado.');
+    await loadProducts();
+  } catch (e) { toast(e.message, 'err'); }
+  btn.disabled = false;
+}
+
+async function deleteProd(id) {
+  const p = products.find((x) => x.id === id);
+  if (!confirm(`¿Eliminar «${p ? p.title : id}»? Desaparecerá de la tienda.`)) return;
+  try { await api('/api/products/' + encodeURIComponent(id), { method: 'DELETE' }); selected.delete(id); toast('Producto eliminado.'); await loadProducts(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+
+async function deleteSelected() {
+  const ids = [...selected];
+  if (!ids.length) return;
+  if (!confirm(`¿Eliminar ${ids.length} productos? Desaparecerán de la tienda.`)) return;
+  try { const r = await api('/api/products/delete', { method: 'POST', body: { ids } }); selected.clear(); toast(`${r.deleted} productos eliminados.`); await loadProducts(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+
+async function resetCatalog() {
+  if (!confirm('Esto borra TODOS los cambios del panel y vuelve a los productos originales de la tienda. ¿Seguro?')) return;
+  if (!confirm('Última comprobación: se perderán los productos añadidos o editados desde el panel. ¿Continuar?')) return;
+  try { const r = await api('/api/products/reset', { method: 'POST', body: {} }); selected.clear(); toast(`Restaurados ${r.count} productos.`); await loadProducts(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+
+/* ── editar todo (masivo) ── */
+function scopeIds(name) {
+  const v = document.querySelector(`input[name="${name}"]:checked`).value;
+  if (v === 'selected') return [...selected];
+  if (v === 'filtered') return filtered().map((p) => p.id);
+  return products.map((p) => p.id);
+}
+function updateScopeCounts() {
+  $('bulkNSel').textContent = selected.size; $('bulkNFil').textContent = filtered().length; $('bulkNAll').textContent = products.length;
+  $('unNSel').textContent = selected.size; $('unNFil').textContent = filtered().length; $('unNAll').textContent = products.length;
+}
+function openBulk(scope) {
+  ['brand', 'cat', 'sizes', 'price', 'adjust', 'compare', 'cost'].forEach((k) => ($('b-' + k).value = ''));
+  $('b-nocompare').checked = false; $('b-best').value = ''; $('b-mode').value = 'percent';
+  updateScopeCounts();
+  const want = scope === 'selected' || (selected.size && !scope) ? 'selected' : 'filtered';
+  document.querySelector(`input[name="bulkScope"][value="${want}"]`).checked = true;
+  $('bulkOverlay').classList.add('on');
+}
+function closeBulk() { $('bulkOverlay').classList.remove('on'); }
+
+async function applyBulk() {
+  const ids = scopeIds('bulkScope');
+  if (!ids.length) return toast('No hay productos en ese grupo.', 'err');
+  const set = {};
+  const brand = $('b-brand').value.trim(), cat = $('b-cat').value.trim(), sizes = $('b-sizes').value.trim();
+  if (brand) set.brand = brand;
+  if (cat) set.cat = cat;
+  if (sizes) set.sizes = sizes.split(/[,\s]+/).filter(Boolean);
+  if ($('b-price').value !== '') set.price = parseFloat($('b-price').value);
+  if ($('b-cost').value !== '') set.cost = parseFloat($('b-cost').value);
+  if ($('b-nocompare').checked) set.compare_price = null;
+  else if ($('b-compare').value !== '') set.compare_price = parseFloat($('b-compare').value);
+  if ($('b-best').value !== '') set.bestseller = $('b-best').value === '1';
+  const body = { ids, set };
+  const adj = parseFloat($('b-adjust').value);
+  if (Number.isFinite(adj) && adj !== 0) body.price_adjust = { mode: $('b-mode').value, value: adj };
+  if (!Object.keys(set).length && !body.price_adjust) return toast('No has rellenado ningún cambio.', 'err');
+  if (!confirm(`Se van a modificar ${ids.length} productos. ¿Continuar?`)) return;
+  const btn = $('btnBulk'); btn.disabled = true;
+  try {
+    const r = await api('/api/products/bulk', { method: 'POST', body });
+    closeBulk(); toast(`${r.changed} productos actualizados.`); await loadProducts();
+  } catch (e) { toast(e.message, 'err'); }
+  btn.disabled = false;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Fotos: descarga, recorte con IA, unificado y subida
+   ════════════════════════════════════════════════════════════ */
+const ORT_VERSION = '1.30.0';
+const ORT_BASE = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
+const MODEL_URL = '/models/u2netp.onnx';
+let aiPromise = null;
+
+function loadScript(src) {
+  return new Promise((ok, fail) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = ok; s.onerror = () => fail(new Error('No se pudo cargar ' + src));
+    document.head.appendChild(s);
   });
-  saveStorage();
-  alert('¡Producto guardado en tu catálogo!');
-  document.getElementById('importResult').classList.remove('on');
-  renderProducts();
+}
+
+/** Carga (una sola vez) onnxruntime-web y el modelo U²-Net pequeño. */
+function loadAI() {
+  if (!aiPromise) {
+    aiPromise = (async () => {
+      await loadScript(ORT_BASE + 'ort.wasm.min.js');
+      window.ort.env.wasm.wasmPaths = ORT_BASE;
+      window.ort.env.wasm.numThreads = 1;
+      const res = await fetch(MODEL_URL);
+      if (!res.ok) throw new Error('No se encontró el modelo de recorte.');
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const session = await window.ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
+      return { ort: window.ort, session };
+    })().catch((e) => { aiPromise = null; throw e; });
+  }
+  return aiPromise;
+}
+
+const fullSizeUrl = (u) => u.replace(/-\d{2,4}x\d{2,4}(?=\.(?:jpe?g|png|webp|gif)(?:\?|$))/i, '');
+
+/** Descarga una imagen (a través del proxy si es externa) y la devuelve como ImageBitmap. */
+async function fetchBitmap(url) {
+  const tries = [...new Set([fullSizeUrl(url), url])];
+  let lastErr;
+  for (const u of tries) {
+    try {
+      const local = u.startsWith('/') || u.startsWith(location.origin);
+      const src = local ? u : '/api/img-proxy?url=' + encodeURIComponent(u);
+      const headers = adminKey() ? { 'x-admin-key': adminKey() } : {};
+      const res = await fetch(src, { headers });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await createImageBitmap(await res.blob());
+    } catch (e) { lastErr = e; }
+  }
+  throw new Error('No se pudo descargar la imagen (' + (lastErr ? lastErr.message : '?') + ')');
+}
+
+// Calzado de pala abierta o zueco: la orientación automática no es fiable
+const NO_ORIENT = /birkenstock|boston|arizona|sandalia|chancla|crocs|slide|clog|zueco|ugg/i;
+const shouldOrient = (p) => (p.cat || 'Calzado') === 'Calzado' && !NO_ORIENT.test(`${p.title || ''} ${p.brand || ''}`);
+
+/**
+ * Descarga, recorta y unifica una foto. Devuelve { blob, previewUrl, flipped, warnings, method }.
+ * opts: { orient, forceFlip, useAI }
+ */
+async function processImage(url, opts) {
+  const bmp = await fetchBitmap(url);
+  const c = document.createElement('canvas');
+  c.width = bmp.width; c.height = bmp.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0);
+  if (bmp.close) bmp.close();
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+
+  let ai = null; const warnings = [];
+  if (opts.useAI) {
+    try { ai = await loadAI(); }
+    catch (e) { warnings.push('Sin IA (' + e.message + '); se recorta por color.'); }
+  }
+  const res = await ImgNorm.normalize(img.data, img.width, img.height, {
+    ort: ai && ai.ort, session: ai && ai.session, orient: opts.orient, forceFlip: opts.forceFlip === undefined ? null : opts.forceFlip,
+  });
+  const out = document.createElement('canvas');
+  out.width = out.height = res.size;
+  out.getContext('2d').putImageData(new ImageData(res.rgba, res.size, res.size), 0, 0);
+  const blob = await new Promise((ok) => out.toBlob(ok, 'image/webp', 0.88));
+  if (!blob) throw new Error('El navegador no pudo crear la imagen.');
+  return { blob, previewUrl: URL.createObjectURL(blob), flipped: res.flipped, warnings: [...warnings, ...res.warnings], method: res.method };
+}
+
+async function uploadBlob(blob) {
+  const r = await api('/api/img', { method: 'POST', raw: blob, headers: { 'Content-Type': blob.type || 'image/webp' } });
+  return r.url;
+}
+
+/* ── unificar la foto de un producto desde el editor ── */
+async function unifyOne(flip) {
+  const id = $('editId').value;
+  const url = $('f-image').value.trim();
+  if (!url) return toast('Este producto no tiene imagen.', 'err');
+  const p = products.find((x) => x.id === id) || { cat: $('f-cat').value, title: $('f-title').value, brand: $('f-brand').value };
+  $('btnUnifyOne').disabled = $('btnUnifyFlip').disabled = true;
+  $('f-imginfo').innerHTML = '<span class="spinner dark"></span> Procesando…';
+  try {
+    const orient = shouldOrient(p);
+    let res;
+    if (flip) {
+      // «Unificar y girar»: se calcula la decisión automática y se invierte
+      const auto = await processImage(url, { orient, useAI: true });
+      res = await processImage(url, { orient: false, forceFlip: !auto.flipped, useAI: true });
+    } else {
+      res = await processImage(url, { orient, useAI: true });
+    }
+    const newUrl = await uploadBlob(res.blob);
+    $('f-image').value = newUrl;
+    $('f-preview').src = res.previewUrl;
+    $('f-imginfo').textContent = 'Foto unificada (pulsa Guardar para aplicarla)' + (res.warnings.length ? ' · ' + res.warnings.join(' ') : '');
+  } catch (e) {
+    $('f-imginfo').textContent = '';
+    toast(e.message, 'err');
+  }
+  $('btnUnifyOne').disabled = $('btnUnifyFlip').disabled = false;
+}
+
+/* ── unificar fotos en bloque ── */
+let unifyRunning = false, unifyCancel = false;
+
+function openUnify(scope) {
+  updateScopeCounts();
+  const want = scope === 'selected' || (selected.size && !scope) ? 'selected' : 'filtered';
+  document.querySelector(`input[name="unScope"][value="${want}"]`).checked = true;
+  $('unProg').classList.add('hidden'); $('unLog').textContent = ''; $('unBar').style.width = '0';
+  $('btnUnStart').disabled = false; $('btnUnStart').textContent = 'Empezar'; $('btnUnCancel').textContent = 'Cerrar';
+  refreshPending();
+  $('unifyOverlay').classList.add('on');
+}
+document.addEventListener('change', (e) => { if (e.target.name === 'unScope' || e.target.id === 'unOnlyPending') refreshPending(); });
+function refreshPending() {
+  const ids = new Set(scopeIds('unScope'));
+  $('unNPend').textContent = products.filter((p) => ids.has(p.id) && !isUnified(p)).length;
+}
+function closeUnify() {
+  if (unifyRunning) { unifyCancel = true; $('unStatus').textContent = 'Cancelando al acabar la foto actual…'; return; }
+  $('unifyOverlay').classList.remove('on'); loadProducts();
+}
+
+async function runUnify() {
+  const ids = new Set(scopeIds('unScope'));
+  let targets = products.filter((p) => ids.has(p.id) && p.image);
+  if ($('unOnlyPending').checked) targets = targets.filter((p) => !isUnified(p));
+  if (!targets.length) return toast('No hay fotos que unificar en ese grupo.', 'err');
+  if (targets.length > 8 && !confirm(`Se van a procesar ${targets.length} fotos (unos 3-4 segundos cada una). Puedes cancelar en cualquier momento. ¿Empezar?`)) return;
+
+  unifyRunning = true; unifyCancel = false;
+  $('unProg').classList.remove('hidden'); $('btnUnStart').disabled = true; $('btnUnCancel').textContent = 'Cancelar';
+  const useAI = $('unAI').checked;
+  let ok = 0, fail = 0;
+  const log = (m) => { const l = $('unLog'); l.textContent += m + '\n'; l.scrollTop = l.scrollHeight; };
+
+  for (let i = 0; i < targets.length && !unifyCancel; i++) {
+    const p = targets[i];
+    $('unStatus').textContent = `${i + 1} de ${targets.length} · ${p.title}`;
+    $('unBar').style.width = (i / targets.length * 100) + '%';
+    try {
+      const r = await processImage(p.image, { orient: shouldOrient(p), useAI });
+      const url = await uploadBlob(r.blob);
+      await api('/api/products/' + encodeURIComponent(p.id), { method: 'PUT', body: { product: { image: url } } });
+      URL.revokeObjectURL(r.previewUrl);
+      ok++;
+      if (r.warnings.length) log(`⚠ ${p.title}: ${r.warnings.join(' ')}`);
+    } catch (e) { fail++; log(`✗ ${p.title}: ${e.message}`); }
+  }
+  $('unBar').style.width = '100%';
+  $('unStatus').textContent = `${unifyCancel ? 'Cancelado' : 'Terminado'}: ${ok} fotos unificadas${fail ? `, ${fail} con error` : ''}.`;
+  unifyRunning = false; unifyCancel = false;
+  $('btnUnStart').disabled = false; $('btnUnStart').textContent = 'Repetir'; $('btnUnCancel').textContent = 'Cerrar';
+  await loadProducts(); refreshPending();
+}
+
+/* ════════════════════════════════════════════════════════════
+   Importador
+   ════════════════════════════════════════════════════════════ */
+let imp = [];            // tarjetas de importación
+let impCancel = false, impRunning = false;
+const DEFAULT_SIZES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
+
+async function startImport() {
+  const url = $('importUrl').value.trim();
+  if (!url) return toast('Introduce un link válido.', 'err');
+  if (impRunning) return;
+  const btn = $('btnImport'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Extrayendo...';
+  try {
+    const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch { throw new Error('Respuesta inválida del servidor: ' + text.slice(0, 80)); }
+    if (!res.ok || data.error) throw new Error(data.error || 'Error desconocido en el servidor');
+
+    const items = data.is_category ? data.products : [data];
+    if (!items || !items.length) throw new Error('No se encontraron productos.');
+    const known = new Set(products.map((p) => (p.title || '').trim().toLowerCase()));
+    imp = items.map((s, i) => {
+      const dup = known.has((s.title || '').trim().toLowerCase());
+      const price = Number(s.price) > 0 ? Number(s.price) : 0;
+      const reg = Number(s.regular_price);
+      return {
+        i, title: s.title || 'Producto importado', brand: s.brand || '', cat: s.category_guess || 'Calzado',
+        price, compare_price: reg > price && price > 0 ? reg : null,
+        sizes: s.sizes && s.sizes.length ? s.sizes : DEFAULT_SIZES,
+        srcImage: s.image || '', blob: null, preview: s.image || '', flipped: false,
+        status: dup ? 'dup' : 'pending', note: dup ? 'Ya existe en la tienda' : '', on: !dup,
+      };
+    });
+    renderImport();
+    $('importArea').classList.remove('hidden');
+    if ($('optUnify').checked) processImportQueue();
+  } catch (e) { toast('Error al importar: ' + e.message, 'err'); }
+  btn.disabled = false; btn.textContent = 'Extraer datos desde Cloudflare';
+}
+
+function renderImport() {
+  const on = imp.filter((c) => c.on).length;
+  $('impSummary').textContent = `${imp.length} productos encontrados · ${on} seleccionados`;
+  $('impGrid').innerHTML = imp.map((c) => {
+    const st = { pending: ['', 'En cola'], working: ['', 'Procesando…'], done: ['ok', 'Foto unificada' + (c.flipped ? ' · girada' : '')],
+                 warn: ['warn', c.note || 'Revisar'], err: ['err', c.note || 'Error'], dup: ['warn', c.note], raw: ['', 'Sin unificar'] }[c.status] || ['', ''];
+    return `<div class="icard ${c.on ? '' : 'off'}">
+      <div class="row"><label style="font-size:11px;display:flex;gap:.3rem;align-items:center"><input type="checkbox" ${c.on ? 'checked' : ''} onchange="impToggle(${c.i},this.checked)"> Importar</label>
+        <button class="btn sm ghost" onclick="impFlip(${c.i})" ${c.status === 'working' ? 'disabled' : ''} title="Girar la foto">↔ Girar</button></div>
+      <img class="pic" src="${esc(c.preview)}" alt="" loading="lazy">
+      <div class="t">${esc(c.title)}</div>
+      <div class="m">${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
+      <div class="st ${st[0]}">${esc(st[1])}${c.status === 'warn' && c.note ? '' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function impToggle(i, on) { imp[i].on = on; renderImport(); }
+
+async function processImportQueue() {
+  if (impRunning) return;
+  impRunning = true; impCancel = false;
+  $('btnImpCancel').disabled = false;
+  const todo = imp.filter((c) => c.status === 'pending');
+  const useAI = $('optAI').checked;
+  let n = 0;
+  for (const c of todo) {
+    if (impCancel) break;
+    c.status = 'working'; renderImport();
+    $('impProgress').textContent = `Procesando fotos ${++n} de ${todo.length}…`;
+    $('impBar').style.width = ((n - 1) / todo.length * 100) + '%';
+    if (!c.srcImage) { c.status = 'warn'; c.note = 'Sin imagen'; continue; }
+    try {
+      const r = await processImage(c.srcImage, { orient: shouldOrient(c), useAI });
+      c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped;
+      c.status = r.warnings.length ? 'warn' : 'done'; c.note = r.warnings.join(' ');
+    } catch (e) { c.status = 'err'; c.note = e.message; }
+    renderImport();
+  }
+  $('impBar').style.width = '100%';
+  $('impProgress').textContent = impCancel ? 'Proceso cancelado.' : 'Fotos listas. Revisa y guarda.';
+  impRunning = false; $('btnImpCancel').disabled = true;
+  renderImport();
+}
+function cancelImport() { impCancel = true; }
+
+async function impFlip(i) {
+  const c = imp[i];
+  if (!c.srcImage || c.status === 'working') return;
+  const wasFlipped = c.flipped;
+  c.status = 'working'; renderImport();
+  try {
+    const r = await processImage(c.srcImage, { orient: false, forceFlip: !wasFlipped, useAI: $('optAI').checked });
+    c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped; c.status = 'done'; c.note = '';
+  } catch (e) { c.status = 'err'; c.note = e.message; }
+  renderImport();
+}
+
+async function saveImport() {
+  const chosen = imp.filter((c) => c.on && c.status !== 'working');
+  if (!chosen.length) return toast('No hay productos seleccionados.', 'err');
+  if (impRunning && !confirm('Aún se están procesando fotos. Los que no estén listos se guardarán con su foto original. ¿Guardar igualmente?')) return;
+  const btn = $('btnImpSave'); btn.disabled = true;
+  try {
+    const out = [];
+    let k = 0;
+    for (const c of chosen) {
+      $('impProgress').textContent = `Guardando ${++k} de ${chosen.length}…`;
+      let image = c.srcImage;
+      if (c.blob) image = await uploadBlob(c.blob);
+      out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0 });
+    }
+    const r = await api('/api/products', { method: 'POST', body: { products: out } });
+    toast(`¡${r.created.length} productos importados a la tienda!`);
+    imp = []; $('importArea').classList.add('hidden'); $('importUrl').value = '';
+    await loadProducts();
+    document.querySelector('.nav-item[data-view="products"]').click();
+  } catch (e) { toast('Error al guardar: ' + e.message, 'err'); }
+  btn.disabled = false;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Cupones
+   ════════════════════════════════════════════════════════════ */
+let couponsLoaded = false;
+
+async function loadCoupons() {
+  showErr('coupErr', '');
+  const tb = $('coupTbody');
+  tb.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner dark"></span></td></tr>';
+  try {
+    const d = await api('/api/discounts');
+    couponsLoaded = true;
+    const codes = d.codes || [];
+    tb.innerHTML = codes.length ? codes.map((c) => `
+      <tr>
+        <td><strong>${esc(c.code)}</strong></td>
+        <td>${c.percent_off ? esc(c.percent_off) + ' %' : c.amount_off ? eur(c.amount_off) : '-'}</td>
+        <td>${esc(c.times_redeemed ?? 0)}</td>
+        <td>${c.max_redemptions ? esc(c.max_redemptions) : 'Sin límite'}</td>
+        <td class="actions"><button class="btn sm danger" onclick="disableCoupon('${esc(c.id)}','${esc(c.code)}')">Desactivar</button></td>
+      </tr>`).join('') : '<tr><td colspan="5" class="empty">No hay cupones activos.</td></tr>';
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">No se pudieron cargar.</td></tr>';
+    showErr('coupErr', e.message);
+  }
+}
+
+async function createCoupon() {
+  const code = $('coupCode').value.trim().toUpperCase(), pct = parseFloat($('coupPct').value), max = parseInt($('coupMax').value, 10);
+  if (!code) return toast('Escribe el código.', 'err');
+  if (!(pct > 0 && pct <= 100)) return toast('El porcentaje debe estar entre 1 y 100.', 'err');
+  showErr('coupErr', '');
+  try {
+    await api('/api/discounts', { method: 'POST', body: { code, percent_off: pct, ...(max > 0 ? { max_redemptions: max } : {}) } });
+    toast(`Cupón ${code} creado.`);
+    $('coupCode').value = ''; $('coupPct').value = ''; $('coupMax').value = '';
+    loadCoupons();
+  } catch (e) { showErr('coupErr', e.message); }
+}
+
+async function disableCoupon(id, code) {
+  if (!confirm(`¿Desactivar el cupón ${code}? Los clientes dejarán de poder usarlo.`)) return;
+  try { await api('/api/discounts?id=' + encodeURIComponent(id), { method: 'DELETE' }); toast('Cupón desactivado.'); loadCoupons(); }
+  catch (e) { showErr('coupErr', e.message); }
 }
 
 checkAuth();
