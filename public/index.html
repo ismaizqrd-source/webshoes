@@ -863,9 +863,16 @@ const discPct=p=>p.compare_price&&p.compare_price>p.price?(1-p.price/p.compare_p
 function bestList(){
   const flagged=P.filter(p=>p.bestseller&&hasImg(p));
   if(flagged.length>=8) return flagged.slice(0,16);
-  const ids=new Set(flagged.map(p=>p.id));
-  const extra=P.filter(p=>!ids.has(p.id)&&hasImg(p)&&discPct(p)>0).sort((a,b)=>discPct(b)-discPct(a)).slice(0,12-flagged.length);
-  return [...flagged,...extra];
+  const out=[...flagged], ids=new Set(out.map(p=>p.id));
+  const add=p=>{ if(out.length<12&&!ids.has(p.id)){ ids.add(p.id); out.push(p); } };
+  // 1) los de mayor descuento
+  P.filter(p=>hasImg(p)&&discPct(p)>0).sort((a,b)=>discPct(b)-discPct(a)).slice(0,12).forEach(add);
+  // 2) si aún faltan (nada marcado ni con descuento), un producto de cada categoría por turnos, lo último añadido
+  if(out.length<8){
+    const lists=catsPresent().map(c=>P.filter(p=>(p.cat||'Calzado')===c&&hasImg(p)).reverse());
+    for(let i=0;out.length<12&&i<12;i++) lists.forEach(l=>{ if(l[i]) add(l[i]); });
+  }
+  return out;
 }
 
 function renderBestsellers(){
