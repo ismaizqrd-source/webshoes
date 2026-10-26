@@ -26,8 +26,7 @@ export default {
         const response = await fetch(targetUrl, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
           }
         });
 
@@ -43,82 +42,40 @@ export default {
         const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || 
                            html.match(/<meta property="og:title" content="([^"]+)"/i) ||
                            html.match(/<title>([^<]+)<\/title>/i);
-        let title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').replace(/–.*$/, '').trim() : "Producto importado";
+        const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').replace(/–.*$/, '').trim() : "Producto importado";
 
-        // 2. EXTRACCIÓN DE PRECIO (Estrategia Multicapa)
+        // 2. EXTRACCIÓN EXACTA DE PRECIO BASADA EN TU HALLAZGO (WooCommerce <ins> <bdi>)
         let price = 0;
+        
+        // Expresión regular ajustada al HTML exacto que encontraste
+        const priceMatch = html.match(/<ins[^>]*>[\s\S]*?<span class="woocommerce-Price-amount amount">[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*</i) ||
+                           html.match(/<span class="woocommerce-Price-amount amount">[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*</i) ||
+                           html.match(/<bdi>\s*"?([\d.,]+)"?\s*<span class="woocommerce-Price-currencySymbol">€<\/span>/i);
 
-        // Capa A: Buscar en JSON de variaciones WooCommerce (data-product_variations)
-        const variationsMatch = html.match(/data-product_variations="([^"]+)"/i);
-        if (variationsMatch) {
-          try {
-            const decodedJson = variationsMatch[1].replace(/&quot;/g, '"');
-            const varsData = JSON.parse(decodedJson);
-            if (Array.isArray(varsData) && varsData.length > 0) {
-              price = parseFloat(varsData[0].display_price || varsData[0].display_regular_price) || 0;
-            }
-          } catch(e) {}
+        if (priceMatch && priceMatch[1]) {
+          const cleanPrice = priceMatch[1].replace(/\./g, '').replace(',', '.').trim();
+          price = parseFloat(cleanPrice) || 0;
         }
 
-        // Capa B: Buscar en JSON-LD (Schema.org / WooCommerce)
+        // Si por alguna razón el precio sigue en 0, buscamos cualquier cantidad numérica seguida de €
         if (!price) {
-          const jsonLdMatches = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi);
-          if (jsonLdMatches) {
-            for (const scriptStr of jsonLdMatches) {
-              try {
-                const cleanJson = scriptStr.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '');
-                const parsed = JSON.parse(cleanJson);
-                const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
-                for (const item of items) {
-                  if (item.offers) {
-                    const offer = Array.isArray(item.offers) ? item.offers[0] : item.offers;
-                    if (offer.price) {
-                      price = parseFloat(offer.price);
-                      break;
-                    }
-                  }
-                }
-              } catch(e) {}
-              if (price) break;
-            }
+          const fallbackMatch = html.match(/([\d]+[.,][\d]{2})\s*€/);
+          if (fallbackMatch) {
+            price = parseFloat(fallbackMatch[1].replace(',', '.')) || 0;
           }
         }
 
-        // Capa C: Buscar etiquetas HTML comunes de WooCommerce (<ins>, <bdi>, amount)
-        if (!price) {
-          const priceRegexes = [
-            /<ins>[\s\S]*?<bdi>([\d.,]+)/i,
-            /<span class="[^\"]*amount[^\"]*">[\s\S]*?<bdi>([\d.,]+)/i,
-            /<bdi>([\d.,]+)/i,
-            /class="price"[^>]*>[\s\S]*?([\d.,]+)\s*€/i,
-            /property="product:price:amount" content="([^"]+)"/i,
-            /itemprop="price"[^>]*content="([^"]+)"/i
-          ];
-
-          for (const rx of priceRegexes) {
-            const match = html.match(rx);
-            if (match && match[1]) {
-              const cleanPrice = match[1].replace(/\./g, '').replace(',', '.').trim();
-              const parsed = parseFloat(cleanPrice);
-              if (!isNaN(parsed) && parsed > 0) {
-                price = parsed;
-                break;
-              }
-            }
-          }
-        }
-
-        // 3. IMAGEN
+        // 3. IMAGEN PRINCIPAL
         const imageMatch = html.match(/data-large_image="([^"]+)"/i) || 
                            html.match(/wp-post-image"[^>]*src="([^"]+)"/i) ||
                            html.match(/<meta property="og:image" content="([^"]+)"/i);
         const image = imageMatch ? imageMatch[1] : "";
 
-        // 4. MARCA Y CATEGORÍA
+        // 4. MARCA AUTOMÁTICA
         let brand = "New Balance";
         const lowerTitle = title.toLowerCase();
-        if (lowerTitle.includes("nike")) brand = "Nike";
-        else if (lowerTitle.includes("adidas")) brand = "Adidas";
+        if (lowerTitle.includes("nike") || lowerTitle.includes("air force") || lowerTitle.includes("dunk")) brand = "Nike";
+        else if (lowerTitle.includes("adidas") || lowerTitle.includes("campus") || lowerTitle.includes("samba")) brand = "Adidas";
         else if (lowerTitle.includes("jordan")) brand = "Jordan";
         else if (lowerTitle.includes("balenciaga")) brand = "Balenciaga";
 
