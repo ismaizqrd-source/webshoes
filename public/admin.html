@@ -246,6 +246,8 @@ tbody tr.sel{background:#f0f4ff}
         <div class="opts">
           <label><input type="checkbox" id="optUnify" checked>
             <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
+          <label><input type="checkbox" id="optFast" checked>
+            <span>Modo rápido <small>Si el fondo es liso y limpio recorta por color (unos 60 ms) y solo usa la IA en las fotos difíciles. Va 2 o 3 veces más rápido.</small></span></label>
           <label><input type="checkbox" id="optAI" checked>
             <span>Recorte con IA <small>Funciona en tu navegador (modelo de 4,5 MB, gratis). Sin él se recorta por el color del fondo, que falla con zapatillas blancas.</small></span></label>
         </div>
@@ -374,6 +376,7 @@ tbody tr.sel{background:#f0f4ff}
     </div>
     <div class="opts">
       <label><input type="checkbox" id="unOnlyPending" checked><span>Solo las que aún no estén unificadas <small>(<span id="unNPend">0</span> en este grupo)</small></span></label>
+      <label><input type="checkbox" id="unFast" checked><span>Modo rápido <small>Si el fondo es liso y limpio recorta por color (unos 60 ms) y solo usa la IA en las fotos difíciles. Va 2 o 3 veces más rápido.</small></span></label>
       <label><input type="checkbox" id="unAI" checked><span>Recorte con IA <small>Mejor resultado; descarga un modelo de 4,5 MB la primera vez.</small></span></label>
     </div>
     <div id="unProg" class="hidden">
@@ -756,7 +759,7 @@ async function processImage(url, opts) {
     catch (e) { warnings.push('Sin IA (' + e.message + '); se recorta por color.'); }
   }
   const res = await ImgNorm.normalize(img.data, img.width, img.height, {
-    ort: ai && ai.ort, session: ai && ai.session, orient: opts.orient, forceFlip: opts.forceFlip === undefined ? null : opts.forceFlip,
+    ort: ai && ai.ort, session: ai && ai.session, fast: !!opts.fast, orient: opts.orient, forceFlip: opts.forceFlip === undefined ? null : opts.forceFlip,
   });
   const out = document.createElement('canvas');
   out.width = out.height = res.size;
@@ -848,7 +851,7 @@ async function runUnify() {
   let done = 0;
   await pool(targets, async (p) => {
     try {
-      const r = await processImage(p.image, { orient: shouldOrient(p), useAI });
+      const r = await processImage(p.image, { orient: shouldOrient(p), useAI, fast: $('unFast').checked });
       const url = await uploadBlob(r.blob);
       await api('/api/products/' + encodeURIComponent(p.id), { method: 'PUT', body: { product: { image: url } } });
       URL.revokeObjectURL(r.previewUrl);
@@ -967,15 +970,18 @@ async function processImportQueue() {
   const useAI = $('optAI').checked;
   let n = 0;
   await pool(todo, async (c) => {
+    if (c.status !== 'pending') return;      // descartada al guardar
     c.status = 'working'; renderImport();
     if (!c.srcImage) { c.status = 'warn'; c.note = 'Sin imagen'; }
     else {
       try {
-        const r = await processImage(c.srcImage, { orient: shouldOrient(c), useAI });
+        const r = await processImage(c.srcImage, { orient: shouldOrient(c), useAI, fast: $('optFast').checked });
         c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped;
         c.status = r.warnings.length ? 'warn' : 'done'; c.note = r.warnings.join(' ');
       } catch (e) { c.status = 'err'; c.note = e.message; }
     }
+    if (c.saved) await finishBackground(c);   // ya estaba guardado: se actualiza su foto
+
     n++;
     $('impProgress').textContent = `Procesadas ${n} de ${todo.length} fotos…`;
     $('impBar').style.width = (n / todo.length * 100) + '%';
@@ -994,28 +1000,70 @@ async function impFlip(i) {
   const wasFlipped = c.flipped;
   c.status = 'working'; renderImport();
   try {
-    const r = await processImage(c.srcImage, { orient: false, forceFlip: !wasFlipped, useAI: $('optAI').checked });
+    const r = await processImage(c.srcImage, { orient: false, forceFlip: !wasFlipped, useAI: $('optAI').checked, fast: $('optFast').checked });
     c.blob = r.blob; c.preview = r.previewUrl; c.flipped = r.flipped; c.status = 'done'; c.note = '';
   } catch (e) { c.status = 'err'; c.note = e.message; }
   renderImport();
 }
 
+// Fotos que se terminan de procesar cuando el producto ya está guardado
+const bg = { total: 0, done: 0, fail: 0 };
+function bgBanner() {
+  let el = $('bgBanner');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'bgBanner';
+    el.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:60;background:#111;color:#fff;padding:.6rem .9rem;font-size:12px;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+    document.body.appendChild(el);
+  }
+  const left = bg.total - bg.done - bg.fail;
+  el.textContent = left > 0
+    ? `Procesando fotos en segundo plano: ${bg.done + bg.fail} de ${bg.total}. No cierres esta pestaña.`
+    : `Fotos terminadas: ${bg.done} unificadas${bg.fail ? `, ${bg.fail} con error (se quedan con la foto original)` : ''}.`;
+  if (left <= 0) setTimeout(() => { if (bg.total - bg.done - bg.fail <= 0) { el.remove(); bg.total = bg.done = bg.fail = 0; } }, 8000);
+}
+window.addEventListener('beforeunload', (e) => { if (bg.total - bg.done - bg.fail > 0) { e.preventDefault(); e.returnValue = ''; } });
+
+async function finishBackground(c) {
+  try {
+    if (c.blob && c.productId) {
+      const url = await uploadBlob(c.blob);
+      await api('/api/products/' + encodeURIComponent(c.productId), { method: 'PUT', body: { product: { image: url } } });
+      bg.done++;
+    } else bg.fail++;
+  } catch (e) { bg.fail++; }
+  bgBanner();
+  if (bg.total - bg.done - bg.fail <= 0) { try { await loadProducts(); } catch (e) { /* sin efecto */ } }
+}
+
 async function saveImport() {
-  const chosen = imp.filter((c) => c.on && c.status !== 'working');
+  const chosen = imp.filter((c) => c.on);
   if (!chosen.length) return toast('No hay productos seleccionados.', 'err');
-  if (impRunning && !confirm('Aún se están procesando fotos. Los que no estén listos se guardarán con su foto original. ¿Guardar igualmente?')) return;
   const btn = $('btnImpSave'); btn.disabled = true;
   try {
+    // Los no marcados no se procesan; los marcados se guardan ya y los que falten se terminan después
+    imp.forEach((c) => { if (!c.on && c.status === 'pending') c.status = 'skip'; });
     const out = [];
     let k = 0;
     for (const c of chosen) {
       $('impProgress').textContent = `Guardando ${++k} de ${chosen.length}…`;
       let image = c.srcImage;
-      if (c.blob) image = await uploadBlob(c.blob);
+      if (c.blob && c.status !== 'working') image = await uploadBlob(c.blob);
       out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0 });
     }
     const r = await api('/api/products', { method: 'POST', body: { products: out } });
-    toast(`¡${r.created.length} productos importados a la tienda!`);
+    // Los que seguían sin foto lista (en cola o procesándose) se actualizan al terminar
+    let late = 0;
+    chosen.forEach((c, i) => {
+      const prod = r.created[i];
+      if (prod && (c.status === 'pending' || c.status === 'working')) {
+        c.saved = true; c.productId = prod.id; late++;
+      }
+    });
+    bg.total += late;
+    toast(late
+      ? `¡${r.created.length} productos guardados! ${late} fotos se siguen procesando en segundo plano.`
+      : `¡${r.created.length} productos importados a la tienda!`);
+    if (late) bgBanner();
     imp = []; $('importArea').classList.add('hidden'); $('importUrl').value = '';
     await loadProducts();
     document.querySelector('.nav-item[data-view="products"]').click();
