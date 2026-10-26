@@ -32,10 +32,8 @@ aside{background:var(--ink);color:#eee;padding:1.5rem 0;position:sticky;top:0;he
 .nav-item:hover{color:#fff;background:#151515}
 .nav-item.active{color:#fff;border-left-color:#fff;background:#151515}
 .nav-item svg{width:15px;height:15px;flex-shrink:0}
-.navbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px}
 .nav-spacer{flex:1}
 .nav-foot{padding:1rem 1.25rem;border-top:1px solid #2a2a2a;font-size:10px;color:#777}
-.nav-foot a{color:#aaa}
 .site-link{display:flex;align-items:center;gap:.4rem;padding:.6rem 1.25rem;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#888}
 .site-link:hover{color:#fff}
 
@@ -47,19 +45,18 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px}
 .view-head h1{font-size:34px}
 .view-head p{color:var(--gray);font-size:13px;margin-top:2px}
 
-/* ── CONNECT / LOGIN SCREEN ── */
+/* ── LOGIN SCREEN ── */
 #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
 .login-box{width:100%;max-width:380px;background:var(--bg);padding:2.5rem 2rem;border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,0.05)}
 .login-box .disp{font-size:30px;letter-spacing:2px;margin-bottom:.25rem;text-align:center}
 .login-box .sub{font-size:12px;color:var(--gray);margin-bottom:2rem;text-align:center}
 .field{margin-bottom:1rem}
 .field label{display:block;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:var(--gray);margin-bottom:.4rem}
-.field input,.field select,.field textarea{width:100%;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;color:var(--ink);outline:none;transition:border-color .15s}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--ink)}
+.field input,.field select{width:100%;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;color:var(--ink);outline:none}
+.field input:focus{border-color:var(--ink)}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.7rem 1.4rem;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;border-radius:var(--radius);border:1px solid var(--ink);background:var(--ink);color:#fff;transition:all .15s}
-.btn:hover{background:#000;transform:translateY(-1px)}
-.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn:hover{background:#000}
 .btn.ghost{background:transparent;color:var(--ink)}
 .btn.ghost:hover{background:var(--bg3)}
 .btn.danger{background:var(--red);border-color:var(--red)}
@@ -69,31 +66,15 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px}
 .err-box{background:var(--red-bg);color:var(--red);padding:.75rem 1rem;border-radius:var(--radius);font-size:12px;margin-bottom:1rem;display:none}
 .err-box.on{display:block}
 
-/* ── STATS & TABLES ── */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
-.stat{background:var(--bg);padding:1.25rem}
-.stat .n{font-family:'Bebas Neue',sans-serif;font-size:38px;line-height:1}
-.stat .l{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);margin-top:.35rem}
-
+/* ── TABLES & TOOLBARS ── */
 .toolbar{display:flex;gap:.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
 .toolbar input[type=search]{flex:1;min-width:180px;padding:.6rem .8rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;outline:none}
-.toolbar select{padding:.6rem .8rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;background:var(--bg)}
 
 table{width:100%;border-collapse:collapse;background:var(--bg)}
 thead th{text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);padding:.6rem .7rem;border-bottom:1px solid var(--ink);white-space:nowrap}
 tbody td{padding:.55rem .7rem;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle}
 tbody tr:hover{background:var(--bg2)}
 .pthumb{width:40px;height:40px;object-fit:contain;background:var(--bg3);border:1px solid var(--border)}
-.ptitle{font-weight:600}
-.pbrand{color:var(--gray);font-size:11px}
-.badge{display:inline-block;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:.2rem .45rem;border-radius:2px;font-weight:700}
-.badge.bs{background:var(--amber-bg);color:var(--amber)}
-.badge.dup{background:var(--red-bg);color:var(--red)}
-.rowbtns{display:flex;gap:.35rem}
-.iconbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border2);background:var(--bg);border-radius:var(--radius);color:var(--gray)}
-.iconbtn:hover{border-color:var(--ink);color:var(--ink)}
-.iconbtn svg{width:13px;height:13px}
-.empty{padding:3rem;text-align:center;color:var(--gray);font-size:13px}
 
 /* ── MODAL & IMPORT ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(10,10,10,.5);z-index:500;align-items:flex-start;justify-content:center;padding:3rem 1rem;overflow-y:auto}
@@ -102,15 +83,9 @@ tbody tr:hover{background:var(--bg2)}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
 .modal-head h2{font-size:24px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
-
-.toast{position:fixed;bottom:2rem;right:2rem;background:var(--ink);color:#fff;padding:.8rem 1.2rem;border-radius:2px;font-size:12px;z-index:600;display:none;max-width:340px}
-.toast.on{display:block}
-.toast.err{background:var(--red)}
-.toast.ok{background:var(--green)}
 
 .import-box{max-width:640px}
-.import-result{border:1px solid var(--border);padding:1.5rem;margin-top:1.5rem;display:none}
+.import-result{border:1px solid var(--border);padding:1.5rem;margin-top:1.5rem;display:none;background:var(--bg)}
 .import-result.on{display:block}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -123,9 +98,7 @@ tbody tr:hover{background:var(--bg2)}
   <div class="login-box">
     <div class="disp">ADMIN LOGIN</div>
     <div class="sub">Panel de gestión interna de la tienda</div>
-
     <div class="err-box" id="loginErr">Usuario o contraseña incorrectos.</div>
-
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="field">
         <label>Usuario</label>
@@ -165,9 +138,7 @@ tbody tr:hover{background:var(--bg2)}
     <div class="view active" id="view-products">
       <div class="view-head">
         <div><h1>Inventario</h1><p><span id="prodCount">0</span> productos cargados</p></div>
-        <div style="display:flex;gap:.6rem">
-          <button class="btn" onclick="openModal()">+ Añadir producto</button>
-        </div>
+        <button class="btn" onclick="openModal()">+ Añadir producto</button>
       </div>
       <div class="toolbar">
         <input type="search" id="searchBox" placeholder="Buscar por título o marca..." oninput="renderProducts()">
@@ -187,16 +158,15 @@ tbody tr:hover{background:var(--bg2)}
       </table>
     </div>
 
-    <!-- IMPORT VIEW (CLOUDFLARE NATIVE) -->
+    <!-- IMPORT VIEW -->
     <div class="view" id="view-import">
       <div class="view-head">
         <div><h1>Importador en la Nube</h1><p>Raspa productos directamente usando tu Cloudflare Worker sin usar Python</p></div>
       </div>
-
       <div class="import-box">
         <div class="field">
           <label>URL del producto (ej: Avvii Shop, WooCommerce, etc.)</label>
-          <input id="importUrl" placeholder="https://avviishop.com/producto/530-munsell-white/">
+          <input id="importUrl" placeholder="https://avviishop.com/producto/...">
         </div>
         <button class="btn" id="btnImport" onclick="importFromCloudflare()">Extraer datos desde Cloudflare</button>
 
@@ -234,10 +204,7 @@ tbody tr:hover{background:var(--bg2)}
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <script>
-// Usuario / Contraseña por defecto (puedes cambiarlos aquí)
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "admin1234";
 
@@ -271,7 +238,6 @@ function logout() {
   location.reload();
 }
 
-// Navegación
 document.querySelectorAll('.nav-item').forEach(el=>{
   el.onclick = () => {
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
@@ -281,7 +247,6 @@ document.querySelectorAll('.nav-item').forEach(el=>{
   };
 });
 
-// Renderizado de lista
 function renderProducts() {
   const tbody = document.getElementById('prodTbody');
   const search = document.getElementById('searchBox').value.toLowerCase();
@@ -364,7 +329,6 @@ function deleteProd(i) {
   }
 }
 
-// IMPORTADOR USANDO CLOUDFLARE API
 async function importFromCloudflare() {
   const url = document.getElementById('importUrl').value.trim();
   if(!url) return alert('Introduce un link válido');
@@ -380,8 +344,17 @@ async function importFromCloudflare() {
       body: JSON.stringify({ url })
     });
     
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
+    const rawText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseErr) {
+      throw new Error(`El servidor devolvió una respuesta no válida: ${rawText.substring(0, 80)}`);
+    }
+
+    if(!res.ok || data.error) {
+      throw new Error(data.error || 'Error desconocido en el servidor');
+    }
 
     currentScraped = data;
     document.getElementById('impTitle').textContent = data.title;
@@ -411,7 +384,6 @@ function saveImportedProduct() {
   renderProducts();
 }
 
-// Verificar sesión al cargar
 checkAuth();
 </script>
 </body>
