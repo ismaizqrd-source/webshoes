@@ -243,6 +243,16 @@ tbody tr.sel{background:#f0f4ff}
             <option value="200">Todas hasta el final</option>
           </select>
         </div>
+        <div class="field" id="yupooOpts">
+          <label>Para álbumes de Yupoo <small style="font-weight:400;color:var(--gray)">(el álbum no trae precio en euros: se usa este)</small></label>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <input id="impPrice" type="number" min="0" step="0.01" placeholder="Precio de venta por defecto (€)" style="flex:1;min-width:180px">
+            <select id="impCat" style="flex:1;min-width:140px">
+              <option value="">Categoría: detectar por el nombre</option>
+              <option>Calzado</option><option>Ropa</option><option>Accesorios</option><option>Electrónica</option>
+            </select>
+          </div>
+        </div>
         <div class="opts">
           <label><input type="checkbox" id="optUnify" checked>
             <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
@@ -778,6 +788,32 @@ const shouldOrient = (p) => (p.cat || 'Calzado') === 'Calzado' && !NO_ORIENT.tes
  * Descarga, recorta y unifica una foto. Devuelve { blob, previewUrl, flipped, warnings, method }.
  * opts: { orient, forceFlip, useAI }
  */
+// Elige entre las fotos de un álbum la de fondo blanco liso (descarta las "reales" con fondo de calle/habitación)
+async function whiteScore(url) {
+  const bmp = await fetchBitmap(url);
+  const S = 48, c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0, S, S); if (bmp.close) bmp.close();
+  const d = ctx.getImageData(0, 0, S, S).data;
+  let white = 0, n = 0, inner = 0, innerN = 0;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const o = (y * S + x) * 4, mn = Math.min(d[o], d[o + 1], d[o + 2]), mx = Math.max(d[o], d[o + 1], d[o + 2]);
+    const isWhite = mn > 225 && mx - mn < 22;
+    const edge = x < 4 || y < 4 || x >= S - 4 || y >= S - 4;
+    if (edge) { n++; if (isWhite) white++; } else if (x > 12 && x < S - 12 && y > 12 && y < S - 12) { innerN++; if (!isWhite) inner++; }
+  }
+  // borde blanco + algo de producto en el centro
+  return (white / n) * (0.6 + 0.4 * (inner / innerN));
+}
+async function pickBestPhoto(photos) {
+  const cand = photos.slice(0, 6);
+  let best = cand[0], bestScore = -1;
+  for (const u of cand) {
+    try { const sc = await whiteScore(u); if (sc > bestScore) { bestScore = sc; best = u; } if (sc > 0.93) break; } catch { /* siguiente */ }
+  }
+  return { url: best, score: bestScore };
+}
+
 async function processImage(url, opts) {
   const bmp = await fetchBitmap(url);
   const c = document.createElement('canvas');
@@ -1045,13 +1081,15 @@ async function startImport() {
     imp = items.map((s, i) => {
       const hit = dupIdx.find(s.title, s.url || '', s.image || '');
       const exact = hit && (hit.kind === 'exact' || hit.kind === 'same');
-      const price = Number(s.price) > 0 ? Number(s.price) : 0;
+      const isYup = s.source === 'yupoo';
+      const price = Number(s.price) > 0 ? Number(s.price) : (isYup ? Number($('impPrice').value) || 0 : 0);
       const reg = Number(s.regular_price);
       if (!exact) dupIdx.add(s.title, s.url || '', 'batch', s.image || '');    // así también se detectan repetidos dentro de la importación
-            return {
-        i, title: s.title || 'Producto importado', brand: s.brand || '', cat: s.category_guess || 'Calzado',
+      const catFinal = (isYup && $('impCat').value) || s.category_guess || 'Calzado';
+      return {
+        i, title: s.title || 'Producto importado', brand: s.brand || '', cat: catFinal, albumUrl: isYup ? (s.album_url || s.url) : '',
         price, compare_price: reg > price && price > 0 ? reg : null, source: s.url || '',
-        sizes: s.sizes && s.sizes.length ? s.sizes : defaultSizes(s.category_guess),
+        sizes: s.sizes && s.sizes.length ? s.sizes : defaultSizes(catFinal),
         srcImage: s.image || '', blob: null, preview: s.image || '', flipped: false,
         status: exact ? 'dup' : 'pending',
         note: exact ? (hit.ref === 'batch' ? 'Repetido en esta importación: ' : hit.kind === 'same' ? 'Ya importado desde este link: ' : 'Ya existe: ') + hit.title : '',
@@ -1061,7 +1099,7 @@ async function startImport() {
     });
     renderImport();
     $('importArea').classList.remove('hidden');
-    if ($('optUnify').checked || $('optColor').checked) processImportQueue();
+    if ($('optUnify').checked || $('optColor').checked || imp.some((c) => c.albumUrl)) processImportQueue();
   } catch (e) { toast('Error al importar: ' + e.message, 'err'); }
   btn.disabled = false; btn.textContent = 'Extraer datos desde Cloudflare';
 }
@@ -1096,6 +1134,17 @@ async function processImportQueue() {
   await pool(todo, async (c) => {
     if (c.status !== 'pending') return;      // descartada al guardar
     c.status = 'working'; renderImport();
+    if (c.albumUrl && !c.albumDone) {
+      try {
+        const a = await scrapeCall({ url: c.albumUrl });
+        if (a.photos && a.photos.length) {
+          const pick = a.photos.length > 1 ? await pickBestPhoto(a.photos) : { url: a.photos[0], score: 1 };
+          c.srcImage = pick.url; c.preview = pick.url; c.photos = a.photos;
+          if (pick.score < 0.6) c.similar = 'No hay foto de fondo blanco claro en el álbum: revisa la foto elegida.';
+        }
+      } catch (e) { /* se queda con la portada */ }
+      c.albumDone = true;
+    }
     if (!c.srcImage) { c.status = 'warn'; c.note = 'Sin imagen'; }
     else {
       try {

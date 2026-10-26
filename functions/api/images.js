@@ -102,6 +102,13 @@ export async function handleImages(request, env) {
   }
 }
 
+// Yupoo solo sirve sus fotos si la petición viene de la página del vendedor (anti-hotlink)
+function refererFor(u) {
+  if (!/(^|\.)yupoo\.com$/i.test(u.hostname)) return {};
+  const user = (u.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
+  return { Referer: user && /^[a-z0-9_-]+$/.test(user) ? `https://${user}.x.yupoo.com/` : 'https://x.yupoo.com/' };
+}
+
 export async function handleImageProxy(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (request.method !== 'GET') return json({ error: 'Método no permitido.' }, 405);
@@ -122,7 +129,7 @@ export async function handleImageProxy(request, env) {
     for (let attempt = 0; attempt < 4; attempt++) {
       try {
         res = await fetch(target.href, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0 Safari/537.36', Accept: 'image/*' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0 Safari/537.36', Accept: 'image/*', ...refererFor(target) },
           redirect: 'follow',
           signal: AbortSignal.timeout(15000),
         });
