@@ -1,10 +1,6 @@
 name = "webshoes"
 main = "src/worker.js"
-compatibility_date = "2026-07-01"
+compatibility_date = "2024-05-15"
 
 [assets]
-directory = "public"
-binding = "ASSETS"
-# Sirve index.html para rutas que no coincidan con ningún archivo
-# (necesario porque la web es una SPA con hashes tipo #producto/xyz)
-not_found_handling = "single-page-application"
+directory = "./public"
