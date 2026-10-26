@@ -12,7 +12,7 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
-    // Endpoint de scraping completo
+    // Endpoint de scraping adaptado a Avviishop / WooCommerce
     if (url.pathname === "/api/scrape" && request.method === "POST") {
       try {
         const body = await request.json();
@@ -38,42 +38,58 @@ export default {
 
         const html = await response.text();
 
-        // 1. Título
+        // 1. Título del producto
         const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || 
-                           html.match(/<meta property="og:title" content="([^"]+)"/i);
-        const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : "Producto importado";
+                           html.match(/<meta property="og:title" content="([^"]+)"/i) ||
+                           html.match(/<title>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').replace('– Avviishop', '').trim() : "Producto importado";
 
-        // 2. Precio (búsqueda mejorada para etiquetas ins, bdi, WooCommerce y OpenGraph)
+        // 2. Extracción precisa de Precio en WooCommerce (Prioriza el precio rebajado <ins> o el general)
         let price = 0;
-        const priceMatch = html.match(/<ins>[\s\S]*?<bdi>([\d.,]+)&nbsp;€<\/bdi>/i) ||
-                           html.match(/<bdi>([\d.,]+)&nbsp;€<\/bdi>/i) ||
-                           html.match(/<bdi>([\d.,]+)\s*€<\/bdi>/i) ||
-                           html.match(/woocommerce-Price-amount amount">[\s\S]*?([\d.,]+)/i) ||
-                           html.match(/<meta property="product:price:amount" content="([^"]+)"/i) ||
-                           html.match(/itemprop="price"[^>]*content="([^"]+)"/i);
+        const priceRegexes = [
+          /<ins>\s*<span class="woocommerce-Price-amount amount">[\s\S]*?([\d.,]+)\s*€/i,
+          /<span class="woocommerce-Price-amount amount">[\s\S]*?([\d.,]+)\s*€/i,
+          /<bdi>([\d.,]+)&nbsp;€<\/bdi>/i,
+          /<bdi>([\d.,]+)\s*€<\/bdi>/i,
+          /<meta property="product:price:amount" content="([^"]+)"/i,
+          /itemprop="price"[^>]*content="([^"]+)"/i
+        ];
 
-        if (priceMatch) {
-          const rawPrice = priceMatch[1].replace(/\./g, '').replace(',', '.').trim();
-          price = parseFloat(rawPrice) || 0;
+        for (const rx of priceRegexes) {
+          const match = html.match(rx);
+          if (match && match[1]) {
+            const cleanPrice = match[1].replace(/\./g, '').replace(',', '.').trim();
+            const parsed = parseFloat(cleanPrice);
+            if (!isNaN(parsed) && parsed > 0) {
+              price = parsed;
+              break;
+            }
+          }
         }
 
-        // 3. Imagen principal
+        // 3. Imagen principal en alta calidad
         const imageMatch = html.match(/data-large_image="([^"]+)"/i) || 
+                           html.match(/wp-post-image"[^>]*src="([^"]+)"/i) ||
                            html.match(/<meta property="og:image" content="([^"]+)"/i);
         const image = imageMatch ? imageMatch[1] : "";
 
-        // 4. Marca inteligente
-        let brand = "New Balance";
-        if (title.toLowerCase().includes("nike")) brand = "Nike";
-        if (title.toLowerCase().includes("adidas")) brand = "Adidas";
-        if (title.toLowerCase().includes("jordan")) brand = "Jordan";
-        if (title.toLowerCase().includes("asics")) brand = "Asics";
+        // 4. Detección automática de Marca basada en el catálogo de Avviishop
+        let brand = "Genérica";
+        const lowerTitle = title.toLowerCase();
+        if (lowerTitle.includes("nike") || lowerTitle.includes("air force") || lowerTitle.includes("dunk") || lowerTitle.includes("tn")) brand = "Nike";
+        else if (lowerTitle.includes("adidas") || lowerTitle.includes("campus") || lowerTitle.includes("samba") || lowerTitle.includes("gazelle")) brand = "Adidas";
+        else if (lowerTitle.includes("jordan") || lowerTitle.includes("retro")) brand = "Jordan";
+        else if (lowerTitle.includes("new balance") || lowerTitle.includes("530") || lowerTitle.includes("2002")) brand = "New Balance";
+        else if (lowerTitle.includes("balenciaga")) brand = "Balenciaga";
+        else if (lowerTitle.includes("nocta")) brand = "Nocta";
+        else if (lowerTitle.includes("syna")) brand = "Syna World";
 
-        // 5. Extracción de Tallas
-        const foundSizes = new Set();
-        const sizeMatches = html.match(/>\s*(3[5-9]|4[0-8](\.\d)?)\s*</g);
-        if (sizeMatches) {
-          sizeMatches.forEach(s => foundSizes.add(s.replace(/[<>]/g, '').trim()));
+        // 5. Categoría automática inteligente
+        let category_guess = "Calzado";
+        if (lowerTitle.includes("tracksuit") || lowerTitle.includes("chaqueta") || lowerTitle.includes("camiseta") || lowerTitle.includes("pantalon")) {
+          category_guess = "Ropa";
+        } else if (lowerTitle.includes("belt") || lowerTitle.includes("glasses") || lowerTitle.includes("wallet") || lowerTitle.includes("rolex")) {
+          category_guess = "Accesorios";
         }
 
         const productData = {
@@ -81,8 +97,8 @@ export default {
           price,
           brand,
           image,
-          sizes: Array.from(foundSizes).sort(),
-          category_guess: "Calzado",
+          sizes: ["38", "39", "40", "41", "42", "43", "44"],
+          category_guess,
           source_url: targetUrl
         };
 
@@ -99,7 +115,6 @@ export default {
       }
     }
 
-    // Servir assets estáticos de Cloudflare
     if (env && env.ASSETS && typeof env.ASSETS.fetch === "function") {
       return env.ASSETS.fetch(request);
     }
