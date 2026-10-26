@@ -12,7 +12,7 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
-    // 1. Endpoint de scraping integrado directamente en el Worker
+    // Endpoint de scraping completo
     if (url.pathname === "/api/scrape" && request.method === "POST") {
       try {
         const body = await request.json();
@@ -31,27 +31,57 @@ export default {
         });
 
         if (!response.ok) {
-          return new Response(JSON.stringify({ error: `La tienda externa respondió con estado ${response.status}` }), {
+          return new Response(JSON.stringify({ error: `La tienda respondió con estado ${response.status}` }), {
             status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
           });
         }
 
         const html = await response.text();
 
-        // Extracción de metadatos básicos de WooCommerce
-        const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<meta property="og:title" content="([^"]+)"/i);
-        const priceMatch = html.match(/<span class="price">[\s\S]*?<bdi>([\d.,]+)\s*€<\/bdi>/i) || html.match(/<meta property="product:price:amount" content="([^"]+)"/i);
-        const imageMatch = html.match(/data-large_image="([^"]+)"/i) || html.match(/<meta property="og:image" content="([^"]+)"/i);
-
+        // 1. Título
+        const titleMatch = html.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || 
+                           html.match(/<meta property="og:title" content="([^"]+)"/i);
         const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : "Producto importado";
-        const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) : 0;
+
+        // 2. Precio (búsqueda mejorada para etiquetas ins, bdi, WooCommerce y OpenGraph)
+        let price = 0;
+        const priceMatch = html.match(/<ins>[\s\S]*?<bdi>([\d.,]+)&nbsp;€<\/bdi>/i) ||
+                           html.match(/<bdi>([\d.,]+)&nbsp;€<\/bdi>/i) ||
+                           html.match(/<bdi>([\d.,]+)\s*€<\/bdi>/i) ||
+                           html.match(/woocommerce-Price-amount amount">[\s\S]*?([\d.,]+)/i) ||
+                           html.match(/<meta property="product:price:amount" content="([^"]+)"/i) ||
+                           html.match(/itemprop="price"[^>]*content="([^"]+)"/i);
+
+        if (priceMatch) {
+          const rawPrice = priceMatch[1].replace(/\./g, '').replace(',', '.').trim();
+          price = parseFloat(rawPrice) || 0;
+        }
+
+        // 3. Imagen principal
+        const imageMatch = html.match(/data-large_image="([^"]+)"/i) || 
+                           html.match(/<meta property="og:image" content="([^"]+)"/i);
         const image = imageMatch ? imageMatch[1] : "";
+
+        // 4. Marca inteligente
+        let brand = "New Balance";
+        if (title.toLowerCase().includes("nike")) brand = "Nike";
+        if (title.toLowerCase().includes("adidas")) brand = "Adidas";
+        if (title.toLowerCase().includes("jordan")) brand = "Jordan";
+        if (title.toLowerCase().includes("asics")) brand = "Asics";
+
+        // 5. Extracción de Tallas
+        const foundSizes = new Set();
+        const sizeMatches = html.match(/>\s*(3[5-9]|4[0-8](\.\d)?)\s*</g);
+        if (sizeMatches) {
+          sizeMatches.forEach(s => foundSizes.add(s.replace(/[<>]/g, '').trim()));
+        }
 
         const productData = {
           title,
           price,
-          brand: title.toLowerCase().includes("nike") ? "Nike" : (title.toLowerCase().includes("adidas") ? "Adidas" : "New Balance"),
+          brand,
           image,
+          sizes: Array.from(foundSizes).sort(),
           category_guess: "Calzado",
           source_url: targetUrl
         };
@@ -69,7 +99,7 @@ export default {
       }
     }
 
-    // 2. Servir Assets estáticos o responder si no coincide con ninguna ruta
+    // Servir assets estáticos de Cloudflare
     if (env && env.ASSETS && typeof env.ASSETS.fetch === "function") {
       return env.ASSETS.fetch(request);
     }
