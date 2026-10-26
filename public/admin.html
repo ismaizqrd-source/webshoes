@@ -259,6 +259,7 @@ tbody tr.sel{background:#f0f4ff}
           <b id="impSummary"></b>
           <span id="impProgress" style="font-size:12px;color:var(--gray)"></span>
           <span style="flex:1"></span>
+          <button class="btn ghost sm" id="btnImpRetry" onclick="retryFailed()">Reintentar fallidas</button>
           <button class="btn ghost sm" id="btnImpCancel" onclick="cancelImport()">Cancelar proceso</button>
           <button class="btn sm" id="btnImpSave" onclick="saveImport()">Guardar en la tienda</button>
         </div>
@@ -720,18 +721,35 @@ function loadAI() {
 const fullSizeUrl = (u) => u.replace(/-\d{2,4}x\d{2,4}(?=\.(?:jpe?g|png|webp|gif)(?:\?|$))/i, '');
 
 /** Descarga una imagen (a través del proxy si es externa) y la devuelve como ImageBitmap. */
+// Máximo 3 descargas a la vez para no saturar a la tienda (evita los errores 429/502)
+let dlActive = 0; const dlWaiters = [];
+async function dlSlot() {
+  if (dlActive >= 3) await new Promise((r) => dlWaiters.push(r));
+  dlActive++;
+}
+function dlRelease() { dlActive--; const w = dlWaiters.shift(); if (w) w(); }
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function fetchBitmap(url) {
   const tries = [...new Set([fullSizeUrl(url), url])];
   let lastErr;
   for (const u of tries) {
-    try {
-      const local = u.startsWith('/') || u.startsWith(location.origin);
-      const src = local ? u : '/api/img-proxy?url=' + encodeURIComponent(u);
-      const headers = adminKey() ? { 'x-admin-key': adminKey() } : {};
-      const res = await fetch(src, { headers });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await createImageBitmap(await res.blob());
-    } catch (e) { lastErr = e; }
+    const local = u.startsWith('/') || u.startsWith(location.origin);
+    const src = local ? u : '/api/img-proxy?url=' + encodeURIComponent(u);
+    const headers = adminKey() ? { 'x-admin-key': adminKey() } : {};
+    // 404 = esa versión no existe (se prueba la siguiente); 429/5xx = se reintenta con espera
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await dlSlot();
+      try {
+        const res = await fetch(src, { headers });
+        if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+        return await createImageBitmap(await res.blob());
+      } catch (e) {
+        lastErr = e;
+        if (e.status && e.status < 500 && e.status !== 429) break;   // definitivo: siguiente URL
+      } finally { dlRelease(); }
+      await wait(1200 * (attempt + 1));
+    }
   }
   throw new Error('No se pudo descargar la imagen (' + (lastErr ? lastErr.message : '?') + ')');
 }
@@ -993,6 +1011,15 @@ async function processImportQueue() {
   renderImport();
 }
 function cancelImport() { impCancel = true; }
+
+// Vuelve a poner en cola las fotos que dieron error (descarga fallida, etc.)
+function retryFailed() {
+  if (impRunning) return toast('Espera a que termine el proceso actual.', 'err');
+  const bad = imp.filter((c) => c.on && c.status === 'err');
+  if (!bad.length) return toast('No hay fotos con error.', 'err');
+  bad.forEach((c) => { c.status = 'pending'; c.note = ''; });
+  renderImport(); processImportQueue();
+}
 
 async function impFlip(i) {
   const c = imp[i];

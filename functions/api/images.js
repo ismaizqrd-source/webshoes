@@ -94,12 +94,27 @@ export async function handleImageProxy(request, env) {
   }
 
   try {
-    const res = await fetch(target.href, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0 Safari/537.36', Accept: 'image/*' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) return json({ error: `El origen respondió HTTP ${res.status}.` }, 502);
+    // La tienda a veces responde 429/5xx si se piden muchas fotos seguidas: se reintenta con espera
+    let res, lastErr;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        res = await fetch(target.href, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0 Safari/537.36', Accept: 'image/*' },
+          redirect: 'follow',
+          signal: AbortSignal.timeout(15000),
+        });
+        if (res.ok || ![429, 500, 502, 503, 504].includes(res.status)) break;
+        const ra = parseInt(res.headers.get('retry-after'), 10);
+        lastErr = `El origen respondió HTTP ${res.status}.`;
+        await new Promise((r) => setTimeout(r, ra > 0 ? Math.min(ra, 4) * 1000 : 700 * (attempt + 1)));
+      } catch (e) {
+        res = null; lastErr = 'No se pudo conectar con el origen: ' + (e.message || e);
+        await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+      }
+    }
+    if (!res) return json({ error: lastErr || 'Sin respuesta del origen.' }, 502);
+    // 404/403 son definitivos (se pasan tal cual); 429 y 5xx se devuelven como reintentables
+    if (!res.ok) return json({ error: `El origen respondió HTTP ${res.status}.` }, [404, 403, 410].includes(res.status) ? res.status : (res.status === 429 ? 429 : 502));
     const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (!type.startsWith('image/')) return json({ error: 'La URL no es una imagen.' }, 415);
     const buf = await res.arrayBuffer();
