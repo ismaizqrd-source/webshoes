@@ -262,6 +262,32 @@ function findNextPage(html, base) {
   return f ? absUrl(decode(f[1]), base) : '';
 }
 
+function pageNumberOf(url) {
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\/page\/(\d+)\/?/) || [null, u.searchParams.get('paged')];
+    return parseInt(m[1], 10) || 1;
+  } catch { return 1; }
+}
+
+// Misma categoría pero en la página n (formato WooCommerce /page/n/)
+function buildPageUrl(url, n) {
+  const u = new URL(url);
+  u.searchParams.delete('paged');
+  u.pathname = u.pathname.replace(/\/page\/\d+\/?$/, '/').replace(/\/?$/, '/');
+  if (n > 1) u.pathname += `page/${n}/`;
+  return u.href;
+}
+
+// Nº total de páginas según los enlaces de paginación (0 si no se ve)
+function totalPagesOf(html) {
+  let max = 0;
+  const re = /href=["'][^"']*(?:\/page\/(\d+)\/?|[?&]paged=(\d+))[^"']*["']/gi;
+  let m;
+  while ((m = re.exec(html))) max = Math.max(max, parseInt(m[1] || m[2], 10) || 0);
+  return max;
+}
+
 /* --------------------------- producto individual ---------------------- */
 
 function extractSingle(html, base) {
@@ -348,8 +374,21 @@ export async function handleScrape(request) {
     HARD_MAX_PAGES
   );
 
+  const startPage = parseInt(body.start_page, 10) || 0;
+  if (startPage > 1) {
+    try { target = new URL(buildPageUrl(target.href, startPage)); } catch { /* se usa la URL tal cual */ }
+  }
+
   try {
-    const first = await fetchHtml(target.href);
+    let first;
+    try { first = await fetchHtml(target.href); }
+    catch (e) {
+      // Página fuera de rango (404) al pedir una página concreta: no hay más
+      if (startPage > 1 && /HTTP 404/.test(String(e.message))) {
+        return json({ is_category: true, source_url: target.href, count: 0, pages: 0, has_more_pages: false, products: [] });
+      }
+      throw e;
+    }
     const html = first.html;
     const base = first.finalUrl;
 
@@ -393,12 +432,19 @@ export async function handleScrape(request) {
         next = findNextPage(lastHtml, lastUrl);
       }
 
+      const hasMore = !!findNextPage(lastHtml, lastUrl);
+      const pageStart = pageNumberOf(base);
+      const pageEnd = pageNumberOf(lastUrl);
       return json({
         is_category: true,
         source_url: base,
         count: products.length,
         pages,
-        has_more_pages: !!findNextPage(lastHtml, lastUrl),
+        page_start: pageStart,
+        page_end: pageEnd,
+        total_pages: Math.max(totalPagesOf(html), totalPagesOf(lastHtml), pageEnd),
+        has_more_pages: hasMore,
+        next_page: hasMore ? pageEnd + 1 : 0,
         products,
       });
     }
