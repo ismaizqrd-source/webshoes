@@ -2,7 +2,8 @@
  * functions/api/discounts.js
  * ════════════════════════════════════════════════════════════
  * GET  /api/discounts — lista códigos de descuento activos
- * POST /api/discounts — crea un código nuevo { code, percent_off }
+ * POST /api/discounts — crea un código nuevo { code, percent_off, max_redemptions? }
+ * DELETE /api/discounts?id=promo_xxx — desactiva un código (no se puede borrar en Stripe)
  *
  * Ambos protegidos con el mismo ADMIN_KEY que orders.js.
  * ════════════════════════════════════════════════════════════
@@ -11,7 +12,7 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 };
 
 export async function onRequestOptions() {
@@ -19,9 +20,48 @@ export async function onRequestOptions() {
 }
 
 function checkAuth(request, env) {
-  if (!env.ADMIN_KEY) return 'Falta configurar ADMIN_KEY en Cloudflare Pages.';
+  if (!env.ADMIN_KEY) return 'Falta configurar el secreto ADMIN_KEY en el Worker (Settings → Variables and Secrets).';
   if (request.headers.get('x-admin-key') !== env.ADMIN_KEY) return 'Clave de administrador incorrecta.';
+  if (!env.STRIPE_SECRET_KEY) return 'Falta configurar el secreto STRIPE_SECRET_KEY en el Worker.';
   return null;
+}
+
+// Desactiva un código de promoción (Stripe no permite borrarlos)
+export async function onRequestDelete(context) {
+  const { request, env } = context;
+  const authErr = checkAuth(request, env);
+  if (authErr) return json({ error: authErr }, 401);
+
+  const id = new URL(request.url).searchParams.get('id') || '';
+  if (!/^promo_[A-Za-z0-9]+$/.test(id)) return json({ error: 'Id de código no válido.' }, 400);
+
+  try {
+    const res = await fetch(`https://api.stripe.com/v1/promotion_codes/${id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'active=false',
+    });
+    const data = await res.json();
+    if (!res.ok) return json({ error: data.error?.message || 'Error de Stripe' }, 500);
+    return json({ ok: true, id: data.id, active: data.active });
+  } catch (err) {
+    return json({ error: err.message }, 500);
+  }
+}
+
+// Punto de entrada para src/worker.js
+export function handleDiscounts(request, env) {
+  const ctx = { request, env };
+  switch (request.method) {
+    case 'OPTIONS': return onRequestOptions();
+    case 'GET': return onRequestGet(ctx);
+    case 'POST': return onRequestPost(ctx);
+    case 'DELETE': return onRequestDelete(ctx);
+    default: return Promise.resolve(json({ error: 'Método no permitido.' }, 405));
+  }
 }
 
 export async function onRequestGet(context) {

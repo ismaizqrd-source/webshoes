@@ -4,3 +4,9 @@ compatibility_date = "2024-05-15"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
+
+# Productos (lista compartida tienda/panel) e imagenes ya normalizadas
+[[kv_namespaces]]
+binding = "DATA_KV"
+id = "283bf46df0014398942a297f8bfc78e3"

@@ -314,9 +314,11 @@ async function fetchHtml(url) {
   return { html: await res.text(), finalUrl: res.url || url };
 }
 
-function isBlockedHost(hostname) {
+export function isBlockedHost(hostname) {
   return (
     hostname === 'localhost' ||
+    hostname.startsWith('[') ||
+    /^0\./.test(hostname) ||
     hostname.endsWith('.local') ||
     /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname) ||
     hostname === '[::1]'
