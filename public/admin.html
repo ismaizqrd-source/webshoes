@@ -470,7 +470,11 @@ async function api(path, opts = {}, canRetry = true) {
     const k = prompt('Esta acción pide la clave de administrador (ADMIN_KEY):');
     if (k) { saveKey(k); $('coupKey').value = k.trim(); return api(path, opts, false); }
   }
-  if (!res.ok) throw new Error((data && data.error) || `Error ${res.status}`);
+  if (!res.ok) {
+    const msg = (data && data.error) || `Error ${res.status}`;
+    if (/limit exceeded/i.test(msg)) throw new Error('Cloudflare ha bloqueado las escrituras por hoy (límite del plan gratis). Se renueva a las 02:00 hora de Madrid.');
+    throw new Error(msg);
+  }
   return data || {};
 }
 
@@ -801,7 +805,7 @@ function queuePatch(id, fields) {
   return done;                       // se resuelve cuando SU lote ya está escrito
 }
 async function flushPatches() {
-  await wait(150);                   // junta las que terminen a la vez
+  await wait(1500);                  // junta las que terminen a la vez (una escritura por lote)
   while (patchQ.items.length) {
     const batch = patchQ.items.splice(0, 200);
     try {
@@ -889,20 +893,23 @@ async function runUnify() {
   let ok = 0, fail = 0;
   const log = (m) => { const l = $('unLog'); l.textContent += m + '\n'; l.scrollTop = l.scrollHeight; };
 
-  let done = 0;
+  let done = 0; const pend = [];
   await pool(targets, async (p) => {
     try {
       const r = await processImage(p.image, { orient: shouldOrient(p), useAI, fast: $('unFast').checked });
       const url = await uploadBlob(r.blob);
-      await queuePatch(p.id, { image: url });
       URL.revokeObjectURL(r.previewUrl);
       ok++;
+      // la escritura de la lista va en lotes: no se espera aquí para no frenar la siguiente foto
+      pend.push(queuePatch(p.id, { image: url }).catch((e) => { ok--; fail++; log(`✗ ${p.title}: ${e.message}`); }));
       if (r.warnings.length) log(`⚠ ${p.title}: ${r.warnings.join(' ')}`);
     } catch (e) { fail++; log(`✗ ${p.title}: ${e.message}`); }
     done++;
     $('unStatus').textContent = `${done} de ${targets.length} · ${p.title}`;
     $('unBar').style.width = (done / targets.length * 100) + '%';
   }, () => unifyCancel);
+  $('unStatus').textContent = 'Guardando los últimos cambios…';
+  await Promise.all(pend);
   $('unBar').style.width = '100%';
   $('unStatus').textContent = `${unifyCancel ? 'Cancelado' : 'Terminado'}: ${ok} fotos unificadas${fail ? `, ${fail} con error` : ''}.`;
   unifyRunning = false; unifyCancel = false;
@@ -918,6 +925,42 @@ let impCancel = false, impRunning = false;
 const DEFAULT_SIZES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
 // Tallas por defecto según la categoría (calzado, ropa; accesorios y electrónica no llevan)
 const defaultSizes = (cat) => (cat === 'Ropa' ? ['S', 'M', 'L', 'XL', 'XXL'] : cat === 'Accesorios' || cat === 'Electrónica' ? [] : DEFAULT_SIZES);
+
+/* ── detección de duplicados ──
+   Se comparan las palabras importantes del nombre (sin tildes, comillas ni palabras de relleno),
+   contra los productos de la tienda y contra los ya vistos en esta misma importación. */
+const DUP_STOP = new Set(['replica', 'replicas', 'zapatilla', 'zapatillas', 'zapas', 'sneaker', 'sneakers', 'shoes', 'shoe', 'para', 'mujer',
+  'hombre', 'unisex', 'de', 'del', 'la', 'el', 'los', 'las', 'con', 'y', 'en', 'the', 'and', 'for', 'women', 'woman', 'men', 'man', 'wmns',
+  'ropa', 'calzado', 'nuevo', 'nueva', 'original', 'oferta', 'edicion', 'limitada']);
+function titleTokens(t) {
+  const words = String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ');
+  return new Set(words.filter((w) => w.length > 1 && !DUP_STOP.has(w)));
+}
+function makeDupIndex() {
+  const entries = [], byToken = new Map(), bySource = new Map();   // bySource: link -> { title, ref }
+  const add = (title, source, ref) => {
+    const tokens = titleTokens(title);
+    const idx = entries.push({ title, tokens, ref }) - 1;
+    tokens.forEach((w) => { if (!byToken.has(w)) byToken.set(w, []); byToken.get(w).push(idx); });
+    if (source) bySource.set(source, { title, ref });
+  };
+  const find = (title, source) => {
+    if (source && bySource.has(source)) return { kind: 'same', title: bySource.get(source).title, ref: bySource.get(source).ref };
+    const A = titleTokens(title);
+    if (!A.size) return null;
+    const cand = new Map();
+    A.forEach((w) => { const l = byToken.get(w); if (l && l.length < 400) l.forEach((i) => cand.set(i, (cand.get(i) || 0) + 1)); });
+    let best = null;
+    for (const [i, inter] of cand) {
+      const B = entries[i].tokens;
+      const sim = inter / (A.size + B.size - inter);
+      if (sim === 1) return { kind: 'exact', title: entries[i].title, ref: entries[i].ref };
+      if (inter >= 2 && sim >= 0.7 && (!best || sim > best.sim)) best = { kind: 'similar', title: entries[i].title, sim, ref: entries[i].ref };
+    }
+    return best;
+  };
+  return { add, find };
+}
 
 async function scrapeCall(payload) {
   const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -967,17 +1010,23 @@ async function startImport() {
       if (data.has_more_pages) toast(`Se han cargado ${loaded} páginas${total ? ' de ' + total : ''}. Elige más páginas o empieza el link en /page/${data.next_page}/ para seguir.`, 'ok');
     }
     if (!items || !items.length) throw new Error('No se encontraron productos.');
-    const known = new Set(products.map((p) => (p.title || '').trim().toLowerCase()));
+    const dupIdx = makeDupIndex();
+    products.forEach((p) => dupIdx.add(p.title, p.source || ''));
     imp = items.map((s, i) => {
-      const dup = known.has((s.title || '').trim().toLowerCase());
+      const hit = dupIdx.find(s.title, s.url || '');
+      const exact = hit && (hit.kind === 'exact' || hit.kind === 'same');
       const price = Number(s.price) > 0 ? Number(s.price) : 0;
       const reg = Number(s.regular_price);
-      return {
+      if (!exact) dupIdx.add(s.title, s.url || '', 'batch');    // así también se detectan repetidos dentro de la importación
+            return {
         i, title: s.title || 'Producto importado', brand: s.brand || '', cat: s.category_guess || 'Calzado',
-        price, compare_price: reg > price && price > 0 ? reg : null,
+        price, compare_price: reg > price && price > 0 ? reg : null, source: s.url || '',
         sizes: s.sizes && s.sizes.length ? s.sizes : defaultSizes(s.category_guess),
         srcImage: s.image || '', blob: null, preview: s.image || '', flipped: false,
-        status: dup ? 'dup' : 'pending', note: dup ? 'Ya existe en la tienda' : '', on: !dup,
+        status: exact ? 'dup' : 'pending',
+        note: exact ? (hit.ref === 'batch' ? 'Repetido en esta importación: ' : hit.kind === 'same' ? 'Ya importado desde este link: ' : 'Ya existe: ') + hit.title : '',
+        similar: hit && hit.kind === 'similar' ? 'Parecido a: ' + hit.title : '',
+        on: !exact,
       };
     });
     renderImport();
@@ -1000,6 +1049,7 @@ function renderImport() {
       <div class="t">${esc(c.title)}</div>
       <div class="m">${esc(c.cat)} · ${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
       <div class="st ${st[0]}">${esc(st[1])}${c.status === 'warn' && c.note ? '' : ''}</div>
+      ${c.similar ? `<div class="st warn">${esc(c.similar)}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -1077,15 +1127,16 @@ function bgBanner() {
 window.addEventListener('beforeunload', (e) => { if (bg.total - bg.done - bg.fail > 0) { e.preventDefault(); e.returnValue = ''; } });
 
 async function finishBackground(c) {
+  const settle = () => { bgBanner(); if (bg.total - bg.done - bg.fail <= 0) loadProducts().catch(() => {}); };
   try {
     if (c.blob && c.productId) {
       const url = await uploadBlob(c.blob);
-      await queuePatch(c.productId, { image: url });
-      bg.done++;
-    } else bg.fail++;
+      queuePatch(c.productId, { image: url }).then(() => { bg.done++; settle(); }).catch(() => { bg.fail++; settle(); });
+      return;
+    }
+    bg.fail++;
   } catch (e) { bg.fail++; }
-  bgBanner();
-  if (bg.total - bg.done - bg.fail <= 0) { try { await loadProducts(); } catch (e) { /* sin efecto */ } }
+  settle();
 }
 
 async function saveImport() {
@@ -1101,7 +1152,7 @@ async function saveImport() {
       $('impProgress').textContent = `Guardando ${++k} de ${chosen.length}…`;
       let image = c.srcImage;
       if (c.blob && c.status !== 'working') image = await uploadBlob(c.blob);
-      out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0 });
+      out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0, source: c.source || '' });
     }
     const r = await api('/api/products', { method: 'POST', body: { products: out } });
     // Los que seguían sin foto lista (en cola o procesándose) se actualizan al terminar
