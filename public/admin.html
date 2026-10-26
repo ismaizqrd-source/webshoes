@@ -243,6 +243,10 @@ tbody tr.sel{background:#f0f4ff}
             <option value="200">Todas hasta el final</option>
           </select>
         </div>
+        <div class="field">
+          <label>Pegar código de la página <small style="font-weight:400;color:var(--gray)">(para webs que bloquean al servidor, como JD Sports: ábrela en tu navegador, pulsa Ctrl+U, Ctrl+A, Ctrl+C y pégalo aquí; el link de arriba es el de esa misma página)</small></label>
+          <textarea id="impHtml" rows="2" placeholder="Opcional" style="width:100%;font-size:11px"></textarea>
+        </div>
         <div class="field" id="yupooOpts">
           <label>Para álbumes de Yupoo <small style="font-weight:400;color:var(--gray)">(el álbum no trae precio en euros: se usa este)</small></label>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -1044,7 +1048,8 @@ async function startImport() {
   try {
     const wanted = parseInt($('impPages').value, 10) || 1;   // páginas a cargar
     const PER_CALL = 5;                                      // páginas por petición (límite de subrequests)
-    let data = await scrapeCall({ url, max_pages: Math.min(wanted, PER_CALL) });
+    const pasted = ($('impHtml').value || '').trim();
+    let data = await scrapeCall(pasted.length > 500 ? { url, html: pasted } : { url, max_pages: Math.min(wanted, PER_CALL) });
     const via = data.via || '';   // 'store-api' (100 por página) o 'html': las siguientes tandas usan el mismo método
     let items;
     if (!data.is_category) items = [data];
