@@ -233,6 +233,16 @@ tbody tr.sel{background:#f0f4ff}
           <label>URL del producto o categoría</label>
           <input id="importUrl" placeholder="https://avviishop.com/producto/... o /categoria-producto/...">
         </div>
+        <div class="field">
+          <label>Páginas de la categoría a cargar <small style="font-weight:400;color:var(--gray)">(empieza en la página del link; si pones /page/70/ empieza en la 70)</small></label>
+          <select id="impPages">
+            <option value="1">Solo esa página</option>
+            <option value="5" selected>5 páginas</option>
+            <option value="20">20 páginas</option>
+            <option value="50">50 páginas</option>
+            <option value="200">Todas hasta el final</option>
+          </select>
+        </div>
         <div class="opts">
           <label><input type="checkbox" id="optUnify" checked>
             <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
@@ -848,18 +858,39 @@ let imp = [];            // tarjetas de importación
 let impCancel = false, impRunning = false;
 const DEFAULT_SIZES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
 
+async function scrapeCall(payload) {
+  const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const text = await res.text();
+  let data; try { data = JSON.parse(text); } catch { throw new Error('Respuesta inválida del servidor: ' + text.slice(0, 80)); }
+  if (!res.ok || data.error) throw new Error(data.error || 'Error desconocido en el servidor');
+  return data;
+}
+
 async function startImport() {
   const url = $('importUrl').value.trim();
   if (!url) return toast('Introduce un link válido.', 'err');
   if (impRunning) return;
   const btn = $('btnImport'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Extrayendo...';
   try {
-    const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
-    const text = await res.text();
-    let data; try { data = JSON.parse(text); } catch { throw new Error('Respuesta inválida del servidor: ' + text.slice(0, 80)); }
-    if (!res.ok || data.error) throw new Error(data.error || 'Error desconocido en el servidor');
-
-    const items = data.is_category ? data.products : [data];
+    const wanted = parseInt($('impPages').value, 10) || 1;   // páginas a cargar
+    const PER_CALL = 5;                                      // páginas por petición (límite de subrequests)
+    let data = await scrapeCall({ url, max_pages: Math.min(wanted, PER_CALL) });
+    let items;
+    if (!data.is_category) items = [data];
+    else {
+      items = data.products.slice();
+      const seen = new Set(items.map((x) => x.url || x.title));
+      let loaded = data.pages, total = data.total_pages || 0;
+      while (data.has_more_pages && loaded < wanted && data.next_page) {
+        btn.innerHTML = `<span class="spinner"></span> Páginas ${loaded}${total ? ' de ' + total : ''}… (${items.length} productos)`;
+        data = await scrapeCall({ url, start_page: data.next_page, max_pages: Math.min(wanted - loaded, PER_CALL) });
+        if (!data.pages) break;
+        loaded += data.pages;
+        for (const x of data.products) { const k = x.url || x.title; if (!seen.has(k)) { seen.add(k); items.push(x); } }
+        total = data.total_pages || total;
+      }
+      if (data.has_more_pages) toast(`Se han cargado ${loaded} páginas${total ? ' de ' + total : ''}. Elige más páginas o empieza el link en /page/${data.next_page}/ para seguir.`, 'ok');
+    }
     if (!items || !items.length) throw new Error('No se encontraron productos.');
     const known = new Set(products.map((p) => (p.title || '').trim().toLowerCase()));
     imp = items.map((s, i) => {
