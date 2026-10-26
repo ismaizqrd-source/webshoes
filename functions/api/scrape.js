@@ -31,8 +31,13 @@ const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 
 // Campos que espera admin.html además de los del scraper
+// Camisetas de fútbol (selecciones, clubes, temporadas): se marcan para dejarlas fuera por defecto
+const RE_FOOTBALL = /f[uú]tbol|football|soccer|\b(real madrid|barcelona|bar[cç]a|atl[eé]tico de madrid|manchester (united|city)|liverpool|chelsea|arsenal|juventus|milan|inter de milan|psg|bayern|dortmund|selecci[oó]n)\b.*\b(camiseta|jersey|shirt|kit|home|away|local|visitante|tercera)\b|\b\d{2}[\/-]\d{2}\b.*\b(home|away|local|visitante|tercera|third)\b/i;
+export const looksFootball = (text) => RE_FOOTBALL.test(String(text || ''));
+
 const withPanelFields = (p, sourceUrl, hint = '') => ({
   ...p,
+  football: looksFootball(`${p.title || ''} ${hint || ''}`),
   sizes: p.sizes && p.sizes.length ? p.sizes : [],   // el panel pone tallas por defecto según la categoría
   category_guess: p.category_guess || guessCategory(p.title, hint),
   source_url: sourceUrl,
