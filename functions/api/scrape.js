@@ -30,35 +30,39 @@ export async function onRequestPost(context) {
     }
 
     const html = await response.text();
-
-    // Detección automática por contenido HTML (infalible para WooCommerce)
-    const productBlocks = html.split(/<(li|div|article)[^>]*class="[^"]*\bproduct\b[^"]*"/gi);
-    const hasLoopTitle = html.includes("woocommerce-loop-product__title");
-    const isCategory = productBlocks.length > 3 || hasLoopTitle || targetUrl.includes("categoria-producto") || targetUrl.includes("shop");
+    const isCategory = targetUrl.includes("categoria-producto") || targetUrl.includes("shop") || targetUrl.includes("brand") || !targetUrl.includes("/producto/");
 
     if (isCategory) {
       const productsMap = new Map();
+      // Separador flexible compatible con comillas dobles y simples en WooCommerce
+      const productBlocks = html.split(/class=["'][^"']*\bproduct\b[^"']*["']/gi);
       
       for (let i = 1; i < productBlocks.length; i++) {
         const block = productBlocks[i];
         
-        const tMatch = block.match(/<h[23][^>]*class="[^"]*woocommerce-loop-product__title[^"]*">([\s\S]*?)<\/h[23]>/i) ||
-                       block.match(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/i) ||
-                       block.match(/class="[^"]*woocommerce-LoopProduct-link[^"]*">([\s\S]*?)<\/a>/i);
-        const rawTitle = tMatch ? tMatch[1].replace(/<[^>]*>/g, '').trim() : "";
+        // Extracción limpia del título del producto
+        let rawTitle = "";
+        const hMatch = block.match(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/i);
+        if (hMatch) {
+          rawTitle = hMatch[1].replace(/<[^>]*>/g, '').trim();
+        } else {
+          const aMatch = block.match(/class=["'][^"']*woocommerce-loop-product__link[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+          if (aMatch) rawTitle = aMatch[1].replace(/<[^>]*>/g, '').trim();
+        }
+
         if (!rawTitle || rawTitle.length < 2) continue;
 
         let price = 68.99;
-        const pMatch = block.match(/<ins[^>]*>[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*</i) ||
-                       block.match(/<span class="woocommerce-Price-amount amount">[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*</i) ||
-                       block.match(/<bdi>\s*"?([\d.,]+)"?\s*</i);
+        const pMatch = block.match(/<ins[^>]*>[\s\S]*?<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i) ||
+                       block.match(/<bdi>\s*"?([\d.,]+)"?\s*<\/bdi>/i) ||
+                       block.match(/amount["'][^>]*>\s*"?([\d.,]+)/i);
         if (pMatch && pMatch[1]) {
           price = parseFloat(pMatch[1].replace(/\./g, '').replace(',', '.')) || 68.99;
         }
 
-        const imgMatch = block.match(/data-lazy-src="([^"]+)"/i) ||
-                         block.match(/data-src="([^"]+)"/i) ||
-                         block.match(/src="([^"]+)"/i);
+        const imgMatch = block.match(/data-lazy-src=["']([^"']+)["']/i) ||
+                         block.match(/data-src=["']([^"']+)["']/i) ||
+                         block.match(/src=["']([^"']+)["']/i);
         let image = imgMatch ? imgMatch[1] : "";
         if (image && !image.startsWith('http')) image = '';
 
