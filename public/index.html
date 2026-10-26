@@ -408,6 +408,61 @@ footer a:hover{color:var(--white)}
   .feats{grid-template-columns:1fr}
   .prod-checks{grid-template-columns:1fr}
 }
+
+/* ───── Rediseño de portada: compacta, por categorías ───── */
+.hero{min-height:0;grid-template-columns:1fr}
+.hero-l{padding:1.8rem 2rem 1.6rem;border-right:none;border-bottom:1px solid var(--border);align-items:flex-start}
+.hero-tag{margin-bottom:.6rem}
+.hero-h{font-size:clamp(40px,5vw,64px);margin-bottom:.6rem;line-height:1}
+.hero-h br{display:none}
+.hero-sub{margin-bottom:1rem;max-width:560px;line-height:1.7}
+.hero-brands{display:none}
+.hero-r{display:none}
+.sec-link{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);cursor:pointer;white-space:nowrap;border-bottom:1px solid transparent;transition:all .2s}
+.sec-link:hover{color:#111;border-bottom-color:#111}
+.home-sec{padding:2.6rem 2rem 0}
+.home-sec .sec-head{margin-bottom:1.1rem}
+/* accesos a categorías */
+.cat-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
+.cat-tile{background:var(--bg2);position:relative;cursor:pointer;aspect-ratio:4/3;overflow:hidden;display:flex;align-items:flex-end}
+.cat-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:12% 12% 22%;transition:transform .35s ease}
+.cat-tile:hover img{transform:scale(1.05)}
+.cat-tile .lbl{position:relative;z-index:1;width:100%;padding:.9rem 1rem;display:flex;justify-content:space-between;align-items:baseline;background:linear-gradient(to top,rgba(255,255,255,.95) 55%,rgba(255,255,255,0))}
+.cat-tile .lbl b{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;font-weight:400}
+.cat-tile .lbl span{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gray)}
+/* más vendidos: fila deslizable */
+.hscroll{display:flex;gap:1px;overflow-x:auto;scroll-snap-type:x proximity;background:var(--border);border:1px solid var(--border);-webkit-overflow-scrolling:touch}
+.hscroll .pcard{flex:0 0 clamp(170px,19vw,230px);scroll-snap-align:start}
+.hscroll::-webkit-scrollbar{height:6px}.hscroll::-webkit-scrollbar-thumb{background:#ccc}
+/* fila de categoría */
+.row-brands{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.9rem}
+.row-brands .fb{padding:4px 11px}
+.pgrid.cat-row{grid-template-columns:repeat(4,1fr)}
+.pgrid.cat-row .pcard:nth-child(n+9){display:none}
+.cat-row-more{display:flex;justify-content:center;padding:1.1rem 0 .4rem}
+/* vista de catálogo */
+#shop-anchor{display:none}
+.catalog-mode #shop-anchor{display:block;padding-top:2rem}
+.catalog-mode .hero,.catalog-mode .brands,.catalog-mode #homeSections,.catalog-mode .promo{display:none}
+.cat-crumb{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);cursor:pointer;display:inline-block;margin-bottom:1rem}
+.cat-crumb:hover{color:#111}
+.cat-tools{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:1.2rem}
+.cat-tools .row-brands{margin:0}
+.cat-tools select{border:1px solid var(--border2);background:#fff;padding:7px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-family:'Inter',sans-serif;color:var(--gray)}
+.load-more{display:flex;flex-direction:column;align-items:center;gap:6px;padding:2rem 0 .5rem}
+.load-more small{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gray)}
+@media(max-width:1024px){
+  .hero-l{padding:2rem 1.5rem}
+  .home-sec{padding:2rem 1.25rem 0}
+  .cat-tiles{grid-template-columns:1fr 1fr}
+  .pgrid.cat-row{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+  .home-sec{padding:1.6rem 1rem 0}
+  .hscroll .pcard{flex-basis:44vw}
+  .pgrid.cat-row{grid-template-columns:1fr 1fr}
+  .cat-tile .lbl b{font-size:17px}
+}
 </style>
 </head>
 <body>
@@ -496,7 +551,7 @@ footer a:hover{color:var(--white)}
   <section class="hero">
     <div class="hero-l">
       <p class="hero-tag fu">Temporada 2025 · Sneakers &amp; Moda</p>
-      <h1 class="hero-h fu d1">ELEVA<br>TU<br><em>ESTILO</em></h1>
+      <h1 class="hero-h fu d1">ELEVA <br>TU <br><em>ESTILO</em></h1>
       <p class="hero-sub fu d2">Adidas, Jordan, Golden Goose, Ralph Lauren, AirPods y más. Las mejores marcas sin pagar de más.</p>
       <div class="hero-ctas fu d3">
         <span onclick="document.getElementById('shop-anchor').scrollIntoView({behavior:'smooth'})" class="btn-org" style="cursor:pointer">Ver productos</span>
@@ -540,30 +595,42 @@ footer a:hover{color:var(--white)}
     <span class="brand-p" onclick="showBrand('Apple')">APPLE</span>
   </div>
 
-  <!-- MÁS VENDIDOS -->
-  <div class="shop-sec" style="border-top:2px solid #111;padding-bottom:0">
-    <div class="sec-head">
-      <div>
-        <span class="sec-ttl">Más Vendidos</span>
-        <span class="sec-cnt" id="bsCount"></span>
+  <div id="homeSections">
+    <!-- MÁS VENDIDOS -->
+    <div class="home-sec" id="bsSec">
+      <div class="sec-head">
+        <div><span class="sec-ttl">Más Vendidos</span><span class="sec-cnt" id="bsCount"></span></div>
+        <span class="sec-link" onclick="filterAll()">Ver todo →</span>
       </div>
-      <span onclick="filterAll();setTimeout(()=>document.getElementById('shop-anchor').scrollIntoView({behavior:'smooth'}),100)" style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);cursor:pointer;transition:color .2s" onmouseover="this.style.color='#111'" onmouseout="this.style.color='var(--gray)'">Ver todo →</span>
+      <div class="hscroll" id="bsgrid"></div>
     </div>
-    <div class="pgrid" id="bsgrid"></div>
+
+    <!-- ACCESOS A CATEGORÍAS -->
+    <div class="home-sec">
+      <div class="sec-head"><div><span class="sec-ttl">Compra por categoría</span></div></div>
+      <div class="cat-tiles" id="catTiles"></div>
+    </div>
+
+    <!-- UNA FILA POR CATEGORÍA -->
+    <div id="catRows"></div>
   </div>
 
+  <!-- CATÁLOGO (categoría, marca, búsqueda o todo) -->
   <div class="shop-sec" id="shop-anchor">
+    <span class="cat-crumb" onclick="goHome()">← Inicio</span>
     <div class="sec-head">
-      <div><span class="sec-ttl" id="shopTitle">Todos los productos</span><span class="sec-cnt" id="shopCount">59 disponibles</span></div>
+      <div><span class="sec-ttl" id="shopTitle">Todos los productos</span><span class="sec-cnt" id="shopCount"></span></div>
     </div>
     <div class="filters" id="filters">
       <button class="fb on" onclick="filterAll()">Todos</button>
-      <button class="fb" onclick="showCat('Calzado')">Calzado</button>
+      <button class="fb" onclick="showCat('Calzado')">Zapatillas</button>
       <button class="fb" onclick="showCat('Ropa')">Ropa</button>
-      <button class="fb" onclick="showCat('Electrónica')">Electrónica</button>
+      <button class="fb" onclick="showCat('Electrónica')">Tecnología</button>
       <button class="fb" onclick="showCat('Accesorios')">Accesorios</button>
     </div>
+    <div class="cat-tools" id="catTools"></div>
     <div class="pgrid" id="pgrid"></div>
+    <div class="load-more" id="loadMore"></div>
   </div>
 
   <div class="promo">
@@ -786,20 +853,75 @@ function showPage(id) {
   window.scrollTo(0,0);
 }
 
+const CAT_LABEL={'Calzado':'Zapatillas','Ropa':'Ropa','Accesorios':'Accesorios','Electrónica':'Tecnología'};
+const CAT_ORDER=['Calzado','Ropa','Accesorios','Electrónica'];
+const catLabel=c=>CAT_LABEL[c]||c;
+const hasImg=p=>p.image&&!/_placeholder/.test(p.image);
+const discPct=p=>p.compare_price&&p.compare_price>p.price?(1-p.price/p.compare_price):0;
+
+// Más vendidos: los marcados como tal en el panel; si hay pocos, se completan con los de mayor descuento
+function bestList(){
+  const flagged=P.filter(p=>p.bestseller&&hasImg(p));
+  if(flagged.length>=8) return flagged.slice(0,16);
+  const ids=new Set(flagged.map(p=>p.id));
+  const extra=P.filter(p=>!ids.has(p.id)&&hasImg(p)&&discPct(p)>0).sort((a,b)=>discPct(b)-discPct(a)).slice(0,12-flagged.length);
+  return [...flagged,...extra];
+}
+
 function renderBestsellers(){
-  const bs=P.filter(p=>p.bestseller);
+  const bs=bestList();
+  document.getElementById('bsSec').style.display=bs.length?'':'none';
   document.getElementById('bsCount').textContent=bs.length+' productos';
   document.getElementById('bsgrid').innerHTML=bs.map((p,i)=>cardHtml(p,i)).join('');
 }
 
+function catsPresent(){
+  const found=[...new Set(P.map(p=>p.cat||'Calzado'))];
+  return [...CAT_ORDER.filter(c=>found.includes(c)),...found.filter(c=>!CAT_ORDER.includes(c))];
+}
+
+function topBrands(list,n){
+  const m={}; list.forEach(p=>{ if(p.brand) m[p.brand]=(m[p.brand]||0)+1; });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,n).map(x=>x[0]);
+}
+const jsq=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function renderCatTiles(){
+  document.getElementById('catTiles').innerHTML=catsPresent().slice(0,4).map(c=>{
+    const list=P.filter(p=>(p.cat||'Calzado')===c);
+    const pick=list.find(p=>p.bestseller&&hasImg(p))||list.find(hasImg)||list[0];
+    return `<div class="cat-tile" onclick="showCat('${jsq(c)}')">${pick?`<img src="${esc(pick.image)}" alt="" loading="lazy">`:''}
+      <div class="lbl"><b>${esc(catLabel(c))}</b><span>${list.length} productos</span></div></div>`;
+  }).join('');
+}
+
+function renderCatRows(){
+  document.getElementById('catRows').innerHTML=catsPresent().map(c=>{
+    const list=P.filter(p=>(p.cat||'Calzado')===c);
+    if(!list.length) return '';
+    // primero los más vendidos de la categoría, luego lo último añadido
+    const shown=[...list.filter(p=>p.bestseller),...list.filter(p=>!p.bestseller).reverse()].slice(0,8);
+    const brands=topBrands(list,6).map(b=>`<button class="fb" onclick="showBrand('${jsq(b)}')">${esc(b)}</button>`).join('');
+    return `<div class="home-sec">
+      <div class="sec-head"><div><span class="sec-ttl">${esc(catLabel(c))}</span><span class="sec-cnt">${list.length} productos</span></div>
+        <span class="sec-link" onclick="showCat('${jsq(c)}')">Ver todo →</span></div>
+      ${brands?`<div class="row-brands">${brands}</div>`:''}
+      <div class="pgrid cat-row">${shown.map((p,i)=>cardHtml(p,i)).join('')}</div>
+      ${list.length>8?`<div class="cat-row-more"><span class="btn-ghost" style="cursor:pointer" onclick="showCat('${jsq(c)}')">Ver los ${list.length} de ${esc(catLabel(c))}</span></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderHome(){
+  renderCatTiles(); renderBestsellers(); renderCatRows();
+}
+
 function goHome() {
   showPage('home');
+  document.getElementById('page-home').classList.remove('catalog-mode');
   document.getElementById('nsearch').value='';
-  renderGrid(P);
-  renderBestsellers();
-  document.querySelectorAll('.fb').forEach(b=>b.classList.toggle('on',b.textContent.trim()==='Todos'));
-  document.getElementById('shopTitle').textContent='Todos los productos';
-  document.getElementById('shopCount').textContent=P.length+' disponibles';
+  renderHome();
 }
 
 function goProduct(id) {
@@ -1046,50 +1168,68 @@ function cardHtml(p,i){
   </div>`;
 }
 
+// ───── catálogo: paginado, filtro por marca y orden ─────
+const PAGE_SIZE=24;
+let baseList=[], curList=[], curShown=0, curBrand='', curSort='rel';
+
 function renderGrid(list){
-  document.getElementById('pgrid').innerHTML=list.length
-    ? list.map(cardHtml).join('')
-    : '<p style="padding:3rem;color:var(--gray);grid-column:1/-1">No se encontraron productos.</p>';
+  curList=list; curShown=0;
+  const g=document.getElementById('pgrid');
+  g.innerHTML='';
+  if(!list.length){
+    g.innerHTML='<p style="padding:3rem;color:var(--gray);grid-column:1/-1">No se encontraron productos.</p>';
+    document.getElementById('loadMore').innerHTML='';
+    return;
+  }
+  moreProducts();
+}
+function moreProducts(){
+  const g=document.getElementById('pgrid');
+  const next=curList.slice(curShown,curShown+PAGE_SIZE);
+  g.insertAdjacentHTML('beforeend',next.map((p,i)=>cardHtml(p,i)).join(''));
+  curShown+=next.length;
+  const left=curList.length-curShown;
+  document.getElementById('loadMore').innerHTML=left>0
+    ? `<span class="btn-org" style="cursor:pointer;display:inline-block" onclick="moreProducts()">Cargar más</span><small>Mostrando ${curShown} de ${curList.length}</small>`
+    : '';
 }
 
-function filterAll(){
-  document.querySelectorAll('.fb').forEach(b=>b.classList.toggle('on',b.textContent.trim()==='Todos'));
-  document.getElementById('shopTitle').textContent='Todos los productos';
-  document.getElementById('shopCount').textContent=P.length+' disponibles';
-  renderGrid(P);
-}
-
-function showCat(cat){
-  showPage('home');
-  document.getElementById('nsearch').value='';
-  document.querySelectorAll('.fb').forEach(b=>b.classList.toggle('on',b.textContent.trim()===cat));
-  const list=P.filter(p=>p.cat===cat);
-  document.getElementById('shopTitle').textContent=cat;
-  document.getElementById('shopCount').textContent=list.length+' disponibles';
+function applyCatalog(){
+  let list=baseList.filter(p=>!curBrand||p.brand===curBrand);
+  if(curSort==='asc') list=[...list].sort((a,b)=>a.price-b.price);
+  else if(curSort==='desc') list=[...list].sort((a,b)=>b.price-a.price);
+  else if(curSort==='name') list=[...list].sort((a,b)=>a.title.localeCompare(b.title,'es'));
+  else if(curSort==='disc') list=[...list].sort((a,b)=>discPct(b)-discPct(a));
+  else list=[...list.filter(p=>p.bestseller),...list.filter(p=>!p.bestseller).reverse()];   // relevancia: más vendidos y novedades
+  document.getElementById('shopCount').textContent=list.length+(curBrand?' de '+baseList.length:'')+' disponibles';
   renderGrid(list);
-  setTimeout(()=>document.getElementById('shop-anchor').scrollIntoView({behavior:'smooth'}),100);
+}
+function setBrandFilter(b){ curBrand=curBrand===b?'':b; drawCatTools(); applyCatalog(); }
+function setSort(v){ curSort=v; applyCatalog(); }
+function drawCatTools(){
+  const brands=topBrands(baseList,12);
+  const chips=brands.length>1?`<div class="row-brands">${brands.map(b=>`<button class="fb${b===curBrand?' on':''}" onclick="setBrandFilter('${jsq(b)}')">${esc(b)}</button>`).join('')}</div>`:'<span></span>';
+  const sel=`<select onchange="setSort(this.value)" aria-label="Ordenar"><option value="rel"${curSort==='rel'?' selected':''}>Más vendidos</option><option value="asc"${curSort==='asc'?' selected':''}>Precio: menor a mayor</option><option value="desc"${curSort==='desc'?' selected':''}>Precio: mayor a menor</option><option value="disc"${curSort==='disc'?' selected':''}>Mayor descuento</option><option value="name"${curSort==='name'?' selected':''}>Nombre A-Z</option></select>`;
+  document.getElementById('catTools').innerHTML=chips+sel;
 }
 
-function showBrand(brand){
+function openCatalog(title,list,activeFilter){
   showPage('home');
-  document.getElementById('nsearch').value='';
-  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
-  const list=P.filter(p=>p.brand===brand);
-  document.getElementById('shopTitle').textContent=brand;
-  document.getElementById('shopCount').textContent=list.length+' disponibles';
-  renderGrid(list);
-  setTimeout(()=>document.getElementById('shop-anchor').scrollIntoView({behavior:'smooth'}),100);
+  document.getElementById('page-home').classList.add('catalog-mode');
+  document.querySelectorAll('.fb').forEach(b=>{ if(b.closest('#filters')) b.classList.toggle('on',b.textContent.trim()===activeFilter); });
+  document.getElementById('shopTitle').textContent=title;
+  baseList=list; curBrand=''; curSort='rel';
+  drawCatTools(); applyCatalog();
 }
+
+function filterAll(){ document.getElementById('nsearch').value=''; openCatalog('Todos los productos',P,'Todos'); }
+function showCat(cat){ document.getElementById('nsearch').value=''; openCatalog(catLabel(cat),P.filter(p=>(p.cat||'Calzado')===cat),catLabel(cat)); }
+function showBrand(brand){ document.getElementById('nsearch').value=''; openCatalog(brand,P.filter(p=>p.brand===brand),''); }
 
 function onNavSearch(q){
   if(!q){ return; }
-  showPage('home');
-  const list=P.filter(p=>p.title.toLowerCase().includes(q.toLowerCase())||p.brand.toLowerCase().includes(q.toLowerCase()));
-  document.getElementById('shopTitle').textContent=`Resultados: "${q}"`;
-  document.getElementById('shopCount').textContent=list.length+' encontrados';
-  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
-  renderGrid(list);
-  if(q.length>2) setTimeout(()=>document.getElementById('shop-anchor').scrollIntoView({behavior:'smooth'}),100);
+  const t=q.toLowerCase();
+  openCatalog(`Resultados: "${q}"`,P.filter(p=>p.title.toLowerCase().includes(t)||(p.brand||'').toLowerCase().includes(t)),'');
 }
 
 // ════════════════════════════════════════
@@ -1158,7 +1298,7 @@ async function sendChat(){
 // ════════════════════════════════════════
 updateCartBadge();
 function startShop(){
-  renderBestsellers();
+  renderHome();
   handleHash();
   if(!location.hash) goHome();
 }
