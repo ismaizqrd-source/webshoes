@@ -31,12 +31,26 @@ const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 
 // Campos que espera admin.html además de los del scraper
-const withPanelFields = (p, sourceUrl) => ({
+const withPanelFields = (p, sourceUrl, hint = '') => ({
   ...p,
-  sizes: DEFAULT_SIZES,
-  category_guess: DEFAULT_CATEGORY,
+  sizes: p.sizes && p.sizes.length ? p.sizes : [],   // el panel pone tallas por defecto según la categoría
+  category_guess: p.category_guess || guessCategory(p.title, hint),
   source_url: sourceUrl,
 });
+
+/* ------------------- categoría del panel (Calzado, Ropa…) ------------- */
+
+const RE_TECH = /\b(airpods?|iphone|ipad|macbook|airtag|apple watch|smartwatch|auriculares|cascos|altavoz|speaker|jbl|bose|samsung|galaxy|playstation|ps[345]|xbox|nintendo|consola|cargador|power ?bank|tablet|port[aá]til|laptop|c[aá]mara|gopro|dji|dyson|secador|teclado|monitor|televisor|airfryer|drone|tecnolog[ií]a|electr[oó]nica)\b/i;
+const RE_CLOTHES = /\b(camiseta|camisa|polo|sudadera|hoodie|jersey|su[eé]ter|sweater|cardigan|chaqueta|cazadora|jacket|puffer|abrigo|parka|chaleco|gilet|pantal[oó]n|pants|vaquero|jeans|shorts?|bermuda|ch[aá]ndal|tracksuit|falda|vestido|ba[nñ]ador|fleece|t-?shirt|tee|ropa)\b/i;
+const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?)\b/i;
+
+// Adivina la categoría del panel por el nombre (y, si no basta, por la ruta de la categoría)
+function guessCategory(title, hint = '') {
+  const pick = (t) => (RE_TECH.test(t) ? 'Electrónica' : RE_CLOTHES.test(t) ? 'Ropa' : RE_ACCESS.test(t) ? 'Accesorios' : '');
+  const t = String(title || '');
+  return pick(t) || pick(decodeURIComponentSafe(hint).replace(/[-_/]+/g, ' ')) || DEFAULT_CATEGORY;
+}
+const decodeURIComponentSafe = (x) => { try { return decodeURIComponent(String(x || '')); } catch { return String(x || ''); } };
 
 /* ----------------------------- utilidades ----------------------------- */
 
@@ -288,6 +302,185 @@ function totalPagesOf(html) {
   return max;
 }
 
+/* ------------------- API pública de WooCommerce (Store API) ------------ */
+// Devuelve 100 productos por petición, sin parsear HTML: mucho más rápida y estable.
+
+const STORE_PER_PAGE = 100;
+const WC_MARKERS = ['categoria-producto', 'product-category', 'tienda', 'shop', 'producto', 'product', 'categoria', 'etiqueta-producto', 'product-tag'];
+
+async function fetchJsonRetry(url) {
+  let last;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0 Safari/537.36', Accept: 'application/json' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { data, total: parseInt(res.headers.get('x-wp-total'), 10) || 0, totalPages: parseInt(res.headers.get('x-wp-totalpages'), 10) || 0 };
+      }
+      last = new Error(`HTTP ${res.status}`); last.status = res.status;
+      if (![429, 500, 502, 503, 504].includes(res.status)) throw last;
+      const ra = parseInt(res.headers.get('retry-after'), 10);
+      await sleep(ra > 0 ? Math.min(ra, 5) * 1000 : 1200 * (attempt + 1));
+    } catch (e) {
+      if (e.status && ![429, 500, 502, 503, 504].includes(e.status)) throw e;
+      last = e;
+      if (!e.status) await sleep(800 * (attempt + 1));
+    }
+  }
+  throw last;
+}
+
+function storeApiCandidates(target) {
+  const segs = target.pathname.split('/').filter(Boolean);
+  const idx = segs.findIndex((x) => WC_MARKERS.includes(x.toLowerCase()));
+  const prefixes = [];
+  if (idx > 0) prefixes.push('/' + segs.slice(0, idx).join('/'));
+  else if (idx === -1 && segs.length) prefixes.push('/' + segs.filter((x) => !/^page$|^\d+$/.test(x)).join('/'));
+  if (segs.length) prefixes.push('/' + segs[0]);
+  prefixes.push('');
+  return [...new Set(prefixes)].map((pre) => target.origin + pre.replace(/\/$/, '') + '/wp-json/wc/store/v1');
+}
+
+function categorySlugOf(target) {
+  const segs = target.pathname.split('/').filter(Boolean).map((x) => decodeURIComponentSafe(x));
+  const i = segs.findIndex((x) => ['categoria-producto', 'product-category'].includes(x.toLowerCase()));
+  if (i === -1) return '';
+  const rest = segs.slice(i + 1).filter((x) => !/^page$|^\d+$/.test(x));
+  return rest[rest.length - 1] || '';
+}
+
+function mapStoreProduct(p, sourceUrl) {
+  const pr = p.prices || {};
+  const div = 10 ** (pr.currency_minor_unit ?? 2);
+  const num = (v) => (v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) / div : null);
+  const price = num(pr.price), regular = num(pr.regular_price), sale = num(pr.sale_price);
+  const title = decode(p.name);
+  const catNames = (p.categories || []).map((c) => decode(c.name));
+  const brand = decode(((p.brands || [])[0] || {}).name || '') || matchKnownBrand(title) || matchKnownBrand(catNames.join(' '));
+  const sizeAttr = (p.attributes || []).find((a) => /talla|size/i.test(`${a.name || ''} ${a.taxonomy || ''}`));
+  const sizes = sizeAttr ? [...new Set((sizeAttr.terms || []).map((t) => decode(t.name)).filter(Boolean))] : [];
+  const img = (p.images || [])[0];
+  return withPanelFields({
+    id: String(p.id ?? ''),
+    sku: p.sku || '',
+    title,
+    price,
+    regular_price: regular ?? price,
+    sale_price: sale && regular && sale < regular ? sale : null,
+    price_text: price != null ? String(price) : '',
+    currency: pr.currency_code || 'EUR',
+    image: img && img.src ? fullSize(img.src) : '',
+    url: p.permalink || '',
+    brand,
+    in_stock: p.is_in_stock !== false,
+    sizes,
+  }, p.permalink || sourceUrl, catNames.join(' '));
+}
+
+// Devuelve la respuesta ya montada, o null si el sitio no ofrece la API (se usa el HTML)
+async function tryStoreApi(target, startPage, maxPages, via) {
+  let base = '', probe = null;
+  for (const cand of storeApiCandidates(target)) {
+    try {
+      const r = await fetchJsonRetry(`${cand}/products?per_page=1`);
+      if (Array.isArray(r.data)) { base = cand; probe = r; break; }
+    } catch { /* se prueba el siguiente */ }
+  }
+  if (!base) return null;
+
+  let catParam = '';
+  const slug = categorySlugOf(target);
+  if (slug) {
+    let found = null;
+    for (let pg = 1; pg <= 6 && !found; pg++) {
+      let r;
+      try { r = await fetchJsonRetry(`${base}/products/categories?per_page=100&page=${pg}`); } catch { break; }
+      if (!Array.isArray(r.data)) break;
+      found = r.data.find((c) => String(c.slug).toLowerCase() === slug.toLowerCase());
+      if (r.data.length < 100) break;
+    }
+    if (!found) return via === 'store-api' ? null : null;
+    catParam = `&category=${found.id}`;
+  }
+
+  const first = Math.max(startPage || 1, 1);
+  const products = [], seen = new Set();
+  let page = first, totalPages = 0, total = 0, rateLimited = false, pagesDone = 0;
+  while (pagesDone < maxPages) {
+    let r;
+    try { r = await fetchJsonRetry(`${base}/products?per_page=${STORE_PER_PAGE}&page=${page}${catParam}`); }
+    catch (e) {
+      if (e.status === 400 && page > 1) break;                      // página fuera de rango
+      if (!e.status || [429, 500, 502, 503, 504].includes(e.status)) { rateLimited = true; break; }
+      if (pagesDone === 0) return null;
+      break;
+    }
+    totalPages = r.totalPages || totalPages; total = r.total || total;
+    if (!Array.isArray(r.data) || !r.data.length) break;
+    for (const it of r.data) {
+      const m = mapStoreProduct(it, target.href);
+      const key = m.url || m.id || m.title;
+      if (!m.title || seen.has(key)) continue;
+      seen.add(key); products.push(m);
+    }
+    pagesDone++; page++;
+    if (totalPages && page > totalPages) break;
+    if (pagesDone < maxPages) await sleep(250);
+  }
+  if (pagesDone === 0 && !rateLimited && !products.length) return { is_category: true, via: 'store-api', source_url: target.href, count: 0, pages: 0, has_more_pages: false, products: [] };
+  const lastPage = first + Math.max(pagesDone, 1) - 1;
+  const hasMore = rateLimited || (totalPages ? page <= totalPages : false);
+  return {
+    is_category: true, via: 'store-api', source_url: target.href, per_page: STORE_PER_PAGE,
+    count: products.length, total_products: total || probe.total || 0,
+    pages: pagesDone, page_start: first, page_end: lastPage, total_pages: totalPages || lastPage,
+    has_more_pages: hasMore, rate_limited: rateLimited, next_page: hasMore ? (rateLimited ? page : lastPage + 1) : 0,
+    products,
+  };
+}
+
+/* ---------- respaldo: listados que no usan la estructura li.product ----- */
+
+const isProductHref = (h) => /\/(producto|product|p)\/[^/?#]+/i.test(h) && !/\/(product-category|categoria-producto)\//i.test(h);
+
+function extractGenericItems(html, base) {
+  const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>/gi;
+  const marks = [];
+  const seen = new Set();
+  let m;
+  while ((m = re.exec(html))) {
+    const href = decode(m[1]);
+    if (!isProductHref(href)) continue;
+    const abs = absUrl(href, base).split('?')[0];
+    if (seen.has(abs)) continue;
+    seen.add(abs); marks.push({ index: m.index, url: abs });
+  }
+  return marks.map((mk, i) => ({ url: mk.url, block: html.slice(mk.index, i + 1 < marks.length ? marks[i + 1].index : mk.index + 5000) }));
+}
+
+function parseGenericItem({ url, block }, base, categoryHint) {
+  const hm = block.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  let title = hm ? stripTags(hm[1]) : '';
+  const firstA = (block.match(/<a\b[^>]*>/i) || [''])[0];
+  if (!title) title = attr(firstA, 'title') || attr(firstA, 'aria-label');
+  if (!title) title = attr((block.match(/<img\b[^>]*>/i) || [''])[0], 'alt');
+  const text = stripTags(block.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ''));
+  const pre = [...text.matchAll(/€\s?(\d{1,5}(?:[.,]\d{1,2})?)/g)].map((x) => parseNumber(x[1]));
+  const suf = [...text.matchAll(/(\d{1,5}(?:[.,]\d{1,2})?)\s?€(?!\s?\d)/g)].map((x) => parseNumber(x[1]));
+  const money = (pre.length ? pre : suf).filter((n) => n > 0);
+  const price = money.length ? Math.min(...money) : null;
+  const regular = money.length > 1 ? Math.max(...money) : price;
+  return {
+    id: '', sku: '', title, price, regular_price: regular, sale_price: regular > price ? price : null,
+    price_text: price != null ? String(price) : '', currency: 'EUR',
+    image: extractImage(block, base), url, brand: detectBrand('', title, categoryHint), in_stock: true,
+  };
+}
+
 /* --------------------------- producto individual ---------------------- */
 
 function extractSingle(html, base) {
@@ -401,6 +594,17 @@ export async function handleScrape(request) {
     try { target = new URL(buildPageUrl(target.href, startPage)); } catch { /* se usa la URL tal cual */ }
   }
 
+  // Primero la API pública de WooCommerce (100 productos por petición); si no existe, se lee el HTML
+  const singleProductPath = /\/(producto|product)\/[^/]+/i.test(target.pathname) && !/\/(product-category|categoria-producto)\//i.test(target.pathname);
+  const urlPage = pageNumberOf(target.href);
+  if (body.via !== 'html' && !singleProductPath && (!(urlPage > 1) || startPage > 0)) {
+    try {
+      const viaApi = await tryStoreApi(target, startPage, Math.min(maxPages, 5), body.via);
+      if (viaApi) return json(viaApi);
+    } catch { /* se sigue con el HTML */ }
+    if (body.via === 'store-api') return json({ error: 'La API de la tienda no respondió; vuelve a intentarlo.' }, 502);
+  }
+
   try {
     let first;
     try { first = await fetchHtml(target.href); }
@@ -419,7 +623,12 @@ export async function handleScrape(request) {
       ? /\bsingle-product\b/.test(bodyClass)
       : /\bproduct_title\b/.test(html);
 
-    const items = extractLoopItems(html);
+    let items = extractLoopItems(html);
+    let generic = false;
+    if (!items.length && !looksSingle) {
+      const g = extractGenericItems(html, base);
+      if (g.length >= 2) { items = g; generic = true; }
+    }
 
     // ¿Categoría? -> hay listado de productos y NO es la ficha de un producto
     // (las fichas también traen "productos relacionados" con li.product).
@@ -429,11 +638,11 @@ export async function handleScrape(request) {
       const seen = new Set();
       const add = (list, pageBase) => {
         for (const it of list) {
-          const p = parseLoopItem(it, pageBase, categoryHint);
+          const p = generic ? parseGenericItem(it, pageBase, categoryHint) : parseLoopItem(it, pageBase, categoryHint);
           const key = p.url || p.id || p.title;
           if (!p.title || seen.has(key)) continue;
           seen.add(key);
-          products.push(withPanelFields(p, p.url || base));
+          products.push(withPanelFields(p, p.url || base, categoryHint));
         }
       };
 
@@ -454,7 +663,8 @@ export async function handleScrape(request) {
           throw e;
         }
         const before = products.length;
-        add(extractLoopItems(page.html), page.finalUrl);
+        const more = extractLoopItems(page.html);
+        add(more.length || !generic ? more : extractGenericItems(page.html, page.finalUrl), page.finalUrl);
         pages++;
         lastHtml = page.html;
         lastUrl = page.finalUrl;
@@ -467,6 +677,7 @@ export async function handleScrape(request) {
       const pageEnd = pageNumberOf(lastUrl);
       return json({
         is_category: true,
+        via: 'html',
         source_url: base,
         count: products.length,
         pages,

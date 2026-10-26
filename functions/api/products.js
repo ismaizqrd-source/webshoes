@@ -26,7 +26,7 @@ export const CORS_HEADERS = {
 };
 
 const KEY = 'products:v1';
-const MAX_PRODUCTS = 2000;
+const MAX_PRODUCTS = 8000;
 
 export const json = (obj, status = 200, extra = {}) =>
   new Response(JSON.stringify(obj), {
@@ -232,6 +232,25 @@ export async function handleProducts(request, env) {
       const { next, changed } = applyBulk(list, body);
       await save(env, next);
       return json({ ok: true, changed, count: next.length });
+    }
+
+    // editar varios a la vez, en una sola escritura (evita que ediciones simultáneas se pisen)
+    if (method === 'POST' && rest[0] === 'patch') {
+      const updates = Array.isArray(body.updates) ? body.updates : [];
+      if (!updates.length) return json({ error: 'Falta "updates".' }, 400);
+      const idx = new Map(list.map((p, i) => [p.id, i]));
+      let changed = 0;
+      for (const u of updates) {
+        const i = idx.get(u && u.id);
+        if (i === undefined) continue;
+        const f = pickFields(u.fields || {});
+        if ('title' in f && !f.title) continue;
+        list[i] = { ...list[i], ...f };
+        if (list[i].bestseller === false) delete list[i].bestseller;
+        changed++;
+      }
+      if (changed) await save(env, list);
+      return json({ ok: true, changed });
     }
 
     // editar uno
