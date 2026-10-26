@@ -145,4 +145,4 @@ export async function onRequestOptions() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
   };
   return new Response(null, { headers: CORS_HEADERS });
-}
+} 
