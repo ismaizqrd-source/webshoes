@@ -79,6 +79,7 @@ function pickFields(input) {
   if ('image' in input) out.image = cleanImage(input.image);
   if ('sizes' in input) out.sizes = cleanSizes(input.sizes);
   if ('bestseller' in input) out.bestseller = !!input.bestseller;
+  if ('source' in input) out.source = /^https?:\/\//.test(String(input.source || '')) ? str(input.source, 500) : '';
   return out;
 }
 
@@ -101,18 +102,45 @@ async function seedList(request, env) {
   } catch { return []; }
 }
 
+// La lista se guarda en D1 troceada en filas de ~400 KB (un cambio = unas pocas filas escritas).
+// Si D1 aún está vacío se lee la lista antigua de KV (migración automática) o la semilla.
+const CHUNK = 400_000;
+let tableReady = false;
+async function ensureTable(env) {
+  if (tableReady) return;
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS store (k TEXT NOT NULL, i INTEGER NOT NULL, v TEXT NOT NULL, PRIMARY KEY (k, i))');
+  tableReady = true;
+}
+
 async function load(request, env) {
-  if (!env.DATA_KV) throw new Error('Falta el binding DATA_KV (KV) en el Worker.');
-  const raw = await env.DATA_KV.get(KEY);
-  if (raw) {
-    try { return JSON.parse(raw); } catch { /* lista corrupta: se vuelve a sembrar */ }
+  if (env.DB) {
+    await ensureTable(env);
+    const { results } = await env.DB.prepare('SELECT v FROM store WHERE k = ? ORDER BY i').bind(KEY).all();
+    if (results && results.length) {
+      try { return JSON.parse(results.map((r) => r.v).join('')); } catch { /* corrupta: se vuelve a sembrar */ }
+    }
+  }
+  if (env.DATA_KV) {
+    const raw = await env.DATA_KV.get(KEY);
+    if (raw) { try { return JSON.parse(raw); } catch { /* corrupta */ } }
+  } else if (!env.DB) {
+    throw new Error('Falta el binding DB (D1) o DATA_KV en el Worker.');
   }
   const seed = await seedList(request, env);
-  if (seed.length) await env.DATA_KV.put(KEY, JSON.stringify(seed));
+  if (seed.length) { try { await save(env, seed); } catch { /* sin escritura: se sirve la semilla */ } }
   return seed;
 }
 
-const save = (env, list) => env.DATA_KV.put(KEY, JSON.stringify(list));
+async function save(env, list) {
+  const text = JSON.stringify(list);
+  if (!env.DB) return env.DATA_KV.put(KEY, text);
+  await ensureTable(env);
+  const stmts = [env.DB.prepare('DELETE FROM store WHERE k = ?').bind(KEY)];
+  for (let i = 0, n = 0; i < text.length; i += CHUNK, n++) {
+    stmts.push(env.DB.prepare('INSERT INTO store (k, i, v) VALUES (?, ?, ?)').bind(KEY, n, text.slice(i, i + CHUNK)));
+  }
+  await env.DB.batch(stmts);   // una sola transacción
+}
 
 const publicView = (p) => {
   const { cost, ...rest } = p; // eslint-disable-line no-unused-vars
@@ -212,6 +240,7 @@ export async function handleProducts(request, env) {
           sizes: f.sizes || [],
           cost: f.cost ?? 0,
           ...(f.bestseller ? { bestseller: true } : {}),
+          ...(f.source ? { source: f.source } : {}),
         });
       }
       if (!created.length) return json({ error: 'Ningún producto válido (falta el título).' }, 400);

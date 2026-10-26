@@ -10,3 +10,9 @@ binding = "ASSETS"
 [[kv_namespaces]]
 binding = "DATA_KV"
 id = "283bf46df0014398942a297f8bfc78e3"
+
+# Fotos y lista de productos (D1 permite 100.000 escrituras al día; KV gratis solo 1.000)
+[[d1_databases]]
+binding = "DB"
+database_name = "webshoes-db"
+database_id = "f1299d7b-1368-41ec-b8be-ebc8089c533f"

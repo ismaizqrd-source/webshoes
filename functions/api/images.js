@@ -17,9 +17,26 @@
 import { CORS_HEADERS, json, guard } from './products.js';
 import { isBlockedHost } from './scrape.js';
 
-const MAX_UPLOAD = 1_500_000;   // 1,5 MB por imagen guardada
+const MAX_UPLOAD = 1_400_000;   // 1,4 MB por imagen (en base64 cabe en una fila de D1, máx. 2 MB)
 const MAX_PROXY = 8_000_000;    // 8 MB por imagen descargada
 const ALLOWED_TYPES = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg' };
+
+let tableReady = false;
+async function ensureTable(env) {
+  if (tableReady) return;
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS images (id TEXT PRIMARY KEY, type TEXT NOT NULL, data TEXT NOT NULL)');
+  tableReady = true;
+}
+function toBase64(buf) {
+  const u8 = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function fromBase64(b64) {
+  const s = atob(b64); const u8 = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
+  return u8;
+}
 
 function newId() {
   const b = crypto.getRandomValues(new Uint8Array(8));
@@ -28,7 +45,7 @@ function newId() {
 
 export async function handleImages(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
-  if (!env.DATA_KV) return json({ error: 'Falta el binding DATA_KV (KV) en el Worker.' }, 500);
+  if (!env.DB && !env.DATA_KV) return json({ error: 'Falta el binding DB (D1) en el Worker.' }, 500);
 
   const url = new URL(request.url);
   const rest = url.pathname.replace(/^\/api\/img\/?/, '');
@@ -38,15 +55,17 @@ export async function handleImages(request, env) {
     if (request.method === 'GET' && rest) {
       const id = rest.replace(/\.[a-z0-9]+$/i, '');
       if (!/^[a-f0-9]{16}$/.test(id)) return new Response('No encontrada', { status: 404 });
-      const { value, metadata } = await env.DATA_KV.getWithMetadata(`img:${id}`, 'arrayBuffer');
-      if (!value) return new Response('No encontrada', { status: 404 });
-      return new Response(value, {
-        headers: {
-          ...CORS_HEADERS,
-          'Content-Type': metadata?.type || 'image/webp',
-          'Cache-Control': 'public, max-age=31536000, immutable',
-        },
-      });
+      const headers = (type) => ({ ...CORS_HEADERS, 'Content-Type': type || 'image/webp', 'Cache-Control': 'public, max-age=31536000, immutable' });
+      if (env.DB) {
+        await ensureTable(env);
+        const row = await env.DB.prepare('SELECT type, data FROM images WHERE id = ?').bind(id).first();
+        if (row) return new Response(fromBase64(row.data), { headers: headers(row.type) });
+      }
+      if (env.DATA_KV) {   // fotos subidas antes a KV
+        const { value, metadata } = await env.DATA_KV.getWithMetadata(`img:${id}`, 'arrayBuffer');
+        if (value) return new Response(value, { headers: headers(metadata && metadata.type) });
+      }
+      return new Response('No encontrada', { status: 404 });
     }
 
     const authErr = guard(request, env);
@@ -59,9 +78,12 @@ export async function handleImages(request, env) {
       if (!ext) return json({ error: 'Formato no permitido (usa webp, png o jpeg).' }, 415);
       const buf = await request.arrayBuffer();
       if (!buf.byteLength) return json({ error: 'Imagen vacía.' }, 400);
-      if (buf.byteLength > MAX_UPLOAD) return json({ error: 'Imagen demasiado grande (máx. 1,5 MB).' }, 413);
+      if (buf.byteLength > MAX_UPLOAD) return json({ error: 'Imagen demasiado grande (máx. 1,4 MB).' }, 413);
       const id = newId();
-      await env.DATA_KV.put(`img:${id}`, buf, { metadata: { type } });
+      if (env.DB) {
+        await ensureTable(env);
+        await env.DB.prepare('INSERT INTO images (id, type, data) VALUES (?, ?, ?)').bind(id, type, toBase64(buf)).run();
+      } else await env.DATA_KV.put(`img:${id}`, buf, { metadata: { type } });
       return json({ ok: true, id, url: `/api/img/${id}.${ext}` }, 201);
     }
 
@@ -69,7 +91,8 @@ export async function handleImages(request, env) {
     if (request.method === 'DELETE' && rest) {
       const id = rest.replace(/\.[a-z0-9]+$/i, '');
       if (!/^[a-f0-9]{16}$/.test(id)) return json({ error: 'Id no válido.' }, 400);
-      await env.DATA_KV.delete(`img:${id}`);
+      if (env.DB) { await ensureTable(env); await env.DB.prepare('DELETE FROM images WHERE id = ?').bind(id).run(); }
+      if (env.DATA_KV) await env.DATA_KV.delete(`img:${id}`).catch(() => {});
       return json({ ok: true });
     }
 
