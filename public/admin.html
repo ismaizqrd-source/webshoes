@@ -356,7 +356,6 @@ async function importFromCloudflare() {
       throw new Error(data.error || 'Error desconocido en el servidor');
     }
 
-    // Soporte para categorías o listados masivos
     if (data.is_category) {
       if (!data.products || data.products.length === 0) {
         throw new Error("No se encontraron productos en esta categoría.");
@@ -376,7 +375,6 @@ async function importFromCloudflare() {
       document.getElementById('importResult').classList.remove('on');
       document.getElementById('importUrl').value = '';
     } else {
-      // Producto individual
       currentScraped = data;
       document.getElementById('impTitle').textContent = data.title;
       document.getElementById('impMeta').textContent = `${data.brand} — ${data.price} €`;
