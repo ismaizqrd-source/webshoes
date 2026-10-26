@@ -383,6 +383,8 @@ function mapStoreProduct(p, sourceUrl) {
 
 // Devuelve la respuesta ya montada, o null si el sitio no ofrece la API (se usa el HTML)
 async function tryStoreApi(target, startPage, maxPages, via) {
+  const ob = (target.searchParams.get('orderby') || '').toLowerCase();
+  const orderParam = ['popularity', 'date', 'price', 'price-desc', 'rating', 'title'].includes(ob) ? `&orderby=${ob === 'price-desc' ? 'price&order=desc' : ob}` : '';
   let base = '', probe = null;
   for (const cand of storeApiCandidates(target)) {
     try {
@@ -412,7 +414,7 @@ async function tryStoreApi(target, startPage, maxPages, via) {
   let page = first, totalPages = 0, total = 0, rateLimited = false, pagesDone = 0;
   while (pagesDone < maxPages) {
     let r;
-    try { r = await fetchJsonRetry(`${base}/products?per_page=${STORE_PER_PAGE}&page=${page}${catParam}`); }
+    try { r = await fetchJsonRetry(`${base}/products?per_page=${STORE_PER_PAGE}&page=${page}${catParam}${orderParam}`); }
     catch (e) {
       if (e.status === 400 && page > 1) break;                      // página fuera de rango
       if (!e.status || [429, 500, 502, 503, 504].includes(e.status)) { rateLimited = true; break; }

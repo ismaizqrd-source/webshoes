@@ -246,6 +246,8 @@ tbody tr.sel{background:#f0f4ff}
         <div class="opts">
           <label><input type="checkbox" id="optUnify" checked>
             <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
+          <label><input type="checkbox" id="optBest">
+            <span>Marcar como más vendidos <small>Los productos que guardes saldrán arriba de la portada, en "Más vendidos". Útil con un link ordenado por popularidad (…/tienda/?orderby=popularity).</small></span></label>
           <label><input type="checkbox" id="optColor" checked>
             <span>Añadir el color al nombre <small>Detecta el color principal de la foto ("Ami Hoodie – Rojo") para distinguir las variantes. No se añade si el nombre ya lleva un color.</small></span></label>
           <label><input type="checkbox" id="optFast" checked>
@@ -1186,7 +1188,7 @@ async function saveImport() {
       $('impProgress').textContent = `Guardando ${++k} de ${chosen.length}…`;
       let image = c.srcImage;
       if (c.blob && c.status !== 'working') image = await uploadBlob(c.blob);
-      out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0, source: c.source || '' });
+      out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0, source: c.source || '', ...($('optBest').checked ? { bestseller: true } : {}) });
     }
     const r = await api('/api/products', { method: 'POST', body: { products: out } });
     // Los que seguían sin foto lista (en cola o procesándose) se actualizan al terminar
