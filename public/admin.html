@@ -69,6 +69,19 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px;min-width:0}
 .btn.block{width:100%}
 .err-box{background:var(--red-bg);color:var(--red);padding:.75rem 1rem;border-radius:var(--radius);font-size:12px;margin-bottom:1rem;display:none}
 .err-box.on{display:block}
+.panel-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem;margin-bottom:1rem;max-width:860px}
+.panel-card h3{font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:.9rem}
+.panel-card textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--border2);border-radius:var(--radius);font:inherit;font-size:13px}
+.chk{display:flex;gap:.5rem;align-items:center;font-size:13px;margin-bottom:.9rem;cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+.sresults{max-height:200px;overflow:auto;border:1px solid var(--border);margin-bottom:.8rem}
+.sresults:empty{display:none}
+.srow{display:flex;gap:.6rem;align-items:center;padding:.4rem .6rem;font-size:12px;border-bottom:1px solid var(--border)}
+.srow img{width:34px;height:34px;object-fit:contain;background:#f5f5f3}
+.srow .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow input{width:auto;padding:.3rem .5rem}
+.srow button{padding:.2rem .5rem}
 .note{background:var(--amber-bg);color:var(--amber);padding:.7rem 1rem;font-size:12px;border-radius:var(--radius);margin-bottom:1rem}
 
 /* ── TABLAS ── */
@@ -172,6 +185,10 @@ tbody tr.sel{background:#f0f4ff}
     <div class="nav-item" data-view="coupons">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
       Cupones
+    </div>
+    <div class="nav-item" data-view="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
+      Página
     </div>
     <div class="nav-spacer"></div>
     <a class="site-link" href="/" target="_blank">↗ Ver tienda</a>
@@ -287,6 +304,68 @@ tbody tr.sel{background:#f0f4ff}
     </div>
 
     <!-- ───── CUPONES ───── -->
+    <div class="view" id="view-page">
+      <div class="view-head">
+        <div><h1>Página</h1><p>Edita el inicio de la tienda: portada, más vendidos y categorías. Los cambios salen al pulsar Guardar.</p></div>
+        <div class="head-actions"><button class="btn ghost" onclick="siteReset()">Valores por defecto</button><button class="btn" id="btnSiteSave" onclick="siteSave()">Guardar cambios</button></div>
+      </div>
+      <div class="err-box" id="siteErr"></div>
+      <datalist id="linkOpts"></datalist>
+
+      <div class="panel-card"><h3>Barra superior</h3>
+        <label class="chk"><input type="checkbox" id="sAnnShow"> Mostrar la barra con textos que se desplazan</label>
+        <div class="field"><label>Textos (uno por línea)</label><textarea id="sAnnItems" rows="4"></textarea></div>
+      </div>
+
+      <div class="panel-card"><h3>Portada</h3>
+        <label class="chk"><input type="checkbox" id="sHeroShow"> Mostrar la portada</label>
+        <div class="field"><label>Texto pequeño</label><input id="sHeroTag"></div>
+        <div class="field"><label>Título <small>(rodea una palabra con *asteriscos* para resaltarla)</small></label><input id="sHeroTitle"></div>
+        <div class="field"><label>Subtítulo</label><input id="sHeroSub"></div>
+        <div class="grid2">
+          <div class="field"><label>Botón 1: texto</label><input id="sB1t"></div>
+          <div class="field"><label>Botón 1: a dónde lleva</label><input id="sB1l" list="linkOpts"></div>
+          <div class="field"><label>Botón 2: texto <small>(vacío = no se muestra)</small></label><input id="sB2t"></div>
+          <div class="field"><label>Botón 2: a dónde lleva</label><input id="sB2l" list="linkOpts"></div>
+        </div>
+        <div class="field"><label>Marcas de la franja <small>(separadas por comas)</small></label><input id="sBrands"></div>
+        <div class="field"><label>Imagen de portada <small>(opcional, aparece a la derecha)</small></label>
+          <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+            <img id="sHeroImgPrev" alt="" style="height:56px;width:90px;object-fit:cover;background:#eee;display:none">
+            <input type="file" id="sHeroFile" accept="image/*" style="width:auto">
+            <button class="btn sm ghost" onclick="siteClearImg()">Quitar imagen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card"><h3>Más vendidos</h3>
+        <label class="chk"><input type="checkbox" id="sBestShow"> Mostrar la sección</label>
+        <div class="grid2">
+          <div class="field"><label>Título</label><input id="sBestTitle"></div>
+          <div class="field"><label>Cuántos mostrar</label><input id="sBestMax" type="number" min="4" max="24"></div>
+          <div class="field"><label>Cómo se eligen</label><select id="sBestMode" onchange="siteBestMode()">
+            <option value="auto">Automático (los marcados como más vendidos y, si faltan, los de más descuento)</option>
+            <option value="manual">Elijo yo los productos</option></select></div>
+        </div>
+        <label class="chk" id="sBestUniqueRow"><input type="checkbox" id="sBestUnique"> No repetir el mismo modelo en distintos colores</label>
+        <div id="sBestManual" class="hidden">
+          <div class="field"><label>Añadir producto</label><input id="sBestSearch" placeholder="Busca por nombre…" oninput="siteBestSearch()"></div>
+          <div id="sBestResults" class="sresults"></div>
+          <div class="field"><label>Productos elegidos (en este orden)</label></div>
+          <div id="sBestChosen"></div>
+        </div>
+      </div>
+
+      <div class="panel-card"><h3>Categorías</h3>
+        <label class="chk"><input type="checkbox" id="sTilesShow"> Mostrar los accesos "Compra por categoría"</label>
+        <div class="field"><label>Título de los accesos</label><input id="sTilesTitle"></div>
+        <label class="chk"><input type="checkbox" id="sRowsShow"> Mostrar una fila de productos por categoría</label>
+        <div class="field"><label>Productos por fila</label><input id="sRowsPer" type="number" min="4" max="16"></div>
+        <div class="field"><label>Orden, nombre y visibilidad</label></div>
+        <div id="sCats"></div>
+      </div>
+    </div>
+
     <div class="view" id="view-coupons">
       <div class="view-head">
         <div><h1>Cupones</h1><p>Códigos de descuento que los clientes escriben en el pago (Stripe)</p></div>
@@ -449,8 +528,129 @@ document.querySelectorAll('.nav-item').forEach(el => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + el.dataset.view).classList.add('active');
     if (el.dataset.view === 'coupons' && !couponsLoaded) loadCoupons();
+    if (el.dataset.view === 'page') loadSite();
   };
 });
+
+
+/* ════════════════════════════════════════════════════════════
+   Página (ajustes del inicio de la tienda)
+   ════════════════════════════════════════════════════════════ */
+const SITE_DEFAULT = {
+  announce: { show: true, items: ['Envío a toda España', 'Devolución 30 días', 'Pago seguro'] },
+  hero: { show: true, tag: 'Sneakers & Moda', title: 'ELEVA TU *ESTILO*', subtitle: 'Las mejores marcas sin pagar de más.',
+    btn1: { text: 'Ver todo', link: 'catalog' }, btn2: { text: 'Ver zapatillas', link: 'cat:Calzado' }, image: '',
+    brands: ['Nike', 'Jordan', 'Adidas', 'Dior', 'Louis Vuitton', 'Golden Goose', 'Alexander McQueen', 'Off White', 'New Balance', 'Ralph Lauren', 'Apple'] },
+  best: { show: true, title: 'Más vendidos', mode: 'auto', ids: [], max: 12, unique: true },
+  tiles: { show: true, title: 'Compra por categoría' },
+  rows: { show: true, perRow: 8 },
+  cats: { order: [], hidden: [], labels: {} },
+};
+let site = null, siteLoaded = false;
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const CAT_NAMES = { Calzado: 'Zapatillas', Ropa: 'Ropa', Accesorios: 'Accesorios', 'Electrónica': 'Tecnología' };
+function siteCats() {
+  const found = [...new Set(products.map((p) => p.cat || 'Calzado'))];
+  const base = [...['Calzado', 'Ropa', 'Accesorios', 'Electrónica'].filter((c) => found.includes(c)), ...found.filter((c) => !['Calzado', 'Ropa', 'Accesorios', 'Electrónica'].includes(c))];
+  const ord = (site.cats.order || []).filter((c) => base.includes(c));
+  return [...ord, ...base.filter((c) => !ord.includes(c))];
+}
+function mergeSiteAdmin(x) {
+  const d = clone(SITE_DEFAULT); x = x || {};
+  for (const k of Object.keys(d)) if (x[k] && typeof x[k] === 'object') d[k] = { ...d[k], ...x[k] };
+  d.hero.btn1 = { ...SITE_DEFAULT.hero.btn1, ...((x.hero || {}).btn1 || {}) };
+  d.hero.btn2 = { ...SITE_DEFAULT.hero.btn2, ...((x.hero || {}).btn2 || {}) };
+  if (!d.hero.brands.length) d.hero.brands = clone(SITE_DEFAULT.hero.brands);
+  if (!d.announce.items.length && !(x.announce && x.announce.items)) d.announce.items = clone(SITE_DEFAULT.announce.items);
+  return d;
+}
+async function loadSite() {
+  try { const r = await api('/api/settings'); site = mergeSiteAdmin(r.settings); siteLoaded = true; }
+  catch (e) { site = mergeSiteAdmin({}); showErr('siteErr', 'No se pudieron leer los ajustes: ' + e.message); }
+  renderSite();
+}
+function renderSite() {
+  const h = site.hero;
+  $('sAnnShow').checked = site.announce.show; $('sAnnItems').value = site.announce.items.join('\n');
+  $('sHeroShow').checked = h.show; $('sHeroTag').value = h.tag; $('sHeroTitle').value = h.title; $('sHeroSub').value = h.subtitle;
+  $('sB1t').value = h.btn1.text; $('sB1l').value = h.btn1.link; $('sB2t').value = h.btn2.text; $('sB2l').value = h.btn2.link;
+  $('sBrands').value = h.brands.join(', ');
+  const pv = $('sHeroImgPrev'); if (h.image) { pv.src = h.image; pv.style.display = ''; } else pv.style.display = 'none';
+  $('sBestShow').checked = site.best.show; $('sBestTitle').value = site.best.title; $('sBestMax').value = site.best.max;
+  $('sBestMode').value = site.best.mode; $('sBestUnique').checked = site.best.unique;
+  $('sTilesShow').checked = site.tiles.show; $('sTilesTitle').value = site.tiles.title;
+  $('sRowsShow').checked = site.rows.show; $('sRowsPer').value = site.rows.perRow;
+  $('linkOpts').innerHTML = ['catalog', ...siteCats().map((c) => 'cat:' + c), 'brand:Nike', 'https://'].map((v) => `<option value="${esc(v)}">`).join('');
+  siteBestMode(); renderBestChosen(); renderSiteCats();
+}
+function siteBestMode() {
+  const manual = $('sBestMode').value === 'manual';
+  $('sBestManual').classList.toggle('hidden', !manual);
+  $('sBestUniqueRow').style.display = manual ? 'none' : '';
+}
+function renderSiteCats() {
+  const cats = siteCats();
+  $('sCats').innerHTML = cats.map((c, i) => `<div class="srow">
+    <span class="grow" style="flex:0 0 110px;color:var(--gray)">${esc(c)}</span>
+    <input value="${esc((site.cats.labels || {})[c] || '')}" placeholder="${esc(CAT_NAMES[c] || c)}" oninput="siteCatLabel('${esc(c)}',this.value)" style="flex:1">
+    <label style="display:flex;gap:.3rem;align-items:center"><input type="checkbox" ${(site.cats.hidden || []).includes(c) ? '' : 'checked'} onchange="siteCatShow('${esc(c)}',this.checked)"> Visible</label>
+    <button class="btn sm ghost" onclick="siteCatMove(${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+    <button class="btn sm ghost" onclick="siteCatMove(${i},1)" ${i === cats.length - 1 ? 'disabled' : ''}>↓</button></div>`).join('');
+}
+function siteCatLabel(c, v) { site.cats.labels = site.cats.labels || {}; if (v.trim()) site.cats.labels[c] = v.trim(); else delete site.cats.labels[c]; }
+function siteCatShow(c, on) { const h = new Set(site.cats.hidden || []); on ? h.delete(c) : h.add(c); site.cats.hidden = [...h]; }
+function siteCatMove(i, d) { const o = siteCats(); const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; site.cats.order = o; renderSiteCats(); }
+function renderBestChosen() {
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const ids = site.best.ids;
+  $('sBestChosen').innerHTML = ids.length ? ids.map((id, i) => { const p = byId.get(id); return `<div class="srow">
+    <img src="${esc(p ? p.image : '')}" alt=""><span class="grow">${esc(p ? p.title : id + ' (ya no existe)')}</span>
+    <button class="btn sm ghost" onclick="siteBestMove(${i},-1)">↑</button><button class="btn sm ghost" onclick="siteBestMove(${i},1)">↓</button>
+    <button class="btn sm ghost" onclick="siteBestDel(${i})">✕</button></div>`; }).join('') : '<p style="font-size:12px;color:var(--gray)">Aún no has elegido ninguno.</p>';
+}
+function siteBestMove(i, d) { const a = site.best.ids, j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; renderBestChosen(); }
+function siteBestDel(i) { site.best.ids.splice(i, 1); renderBestChosen(); }
+function siteBestSearch() {
+  const q = $('sBestSearch').value.trim().toLowerCase();
+  if (q.length < 2) { $('sBestResults').innerHTML = ''; return; }
+  const res = products.filter((p) => !site.best.ids.includes(p.id) && (p.title + ' ' + (p.brand || '')).toLowerCase().includes(q)).slice(0, 12);
+  $('sBestResults').innerHTML = res.map((p) => `<div class="srow"><img src="${esc(p.image)}" alt=""><span class="grow">${esc(p.title)}</span><button class="btn sm" onclick="siteBestAdd('${esc(p.id)}')">Añadir</button></div>`).join('') || '<div class="srow">Sin resultados</div>';
+}
+function siteBestAdd(id) { if (!site.best.ids.includes(id)) site.best.ids.push(id); renderBestChosen(); siteBestSearch(); }
+function siteClearImg() { site.hero.image = ''; $('sHeroImgPrev').style.display = 'none'; $('sHeroFile').value = ''; }
+document.getElementById('sHeroFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const bmp = await createImageBitmap(f);
+    const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/webp', 0.85));
+    site.hero.image = await uploadBlob(blob);
+    $('sHeroImgPrev').src = site.hero.image; $('sHeroImgPrev').style.display = '';
+  } catch (err) { toast('No se pudo subir la imagen: ' + err.message, 'err'); }
+});
+function collectSite() {
+  const lines = (v) => v.split('\n').map((x) => x.trim()).filter(Boolean);
+  site.announce = { show: $('sAnnShow').checked, items: lines($('sAnnItems').value) };
+  Object.assign(site.hero, {
+    show: $('sHeroShow').checked, tag: $('sHeroTag').value.trim(), title: $('sHeroTitle').value.trim(), subtitle: $('sHeroSub').value.trim(),
+    btn1: { text: $('sB1t').value.trim(), link: $('sB1l').value.trim() }, btn2: { text: $('sB2t').value.trim(), link: $('sB2l').value.trim() },
+    brands: $('sBrands').value.split(',').map((x) => x.trim()).filter(Boolean),
+  });
+  Object.assign(site.best, { show: $('sBestShow').checked, title: $('sBestTitle').value.trim() || 'Más vendidos', max: parseInt($('sBestMax').value, 10) || 12, mode: $('sBestMode').value, unique: $('sBestUnique').checked });
+  site.tiles = { show: $('sTilesShow').checked, title: $('sTilesTitle').value.trim() || 'Compra por categoría' };
+  site.rows = { show: $('sRowsShow').checked, perRow: parseInt($('sRowsPer').value, 10) || 8 };
+  site.cats.order = siteCats();
+}
+async function siteSave() {
+  showErr('siteErr', '');
+  const b = $('btnSiteSave'); b.disabled = true; b.textContent = 'Guardando…';
+  try { collectSite(); const r = await api('/api/settings', { method: 'POST', body: { settings: site } }); site = mergeSiteAdmin(r.settings); renderSite(); toast('Página guardada. Ya se ve en la tienda.', 'ok'); }
+  catch (e) { showErr('siteErr', 'Error al guardar: ' + e.message); }
+  b.disabled = false; b.textContent = 'Guardar cambios';
+}
+function siteReset() { if (!confirm('¿Volver a los textos y ajustes por defecto? (no se guarda hasta que pulses Guardar)')) return; site = mergeSiteAdmin({}); renderSite(); }
 
 /* ════════════════════════════════════════════════════════════
    Utilidades
