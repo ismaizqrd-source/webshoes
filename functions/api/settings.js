@@ -27,7 +27,7 @@ export function cleanSettings(x) {
   return {
     announce: { show: b(x.announce && x.announce.show, true), items: arr(x.announce && x.announce.items, 12, 80) },
     hero: {
-      show: b(h.show, true), tag: s(h.tag, 80), title: s(h.title, 120), subtitle: s(h.subtitle, 300),
+      show: b(h.show, true), strip: h.strip === 'brands' ? 'brands' : 'cats', tag: s(h.tag, 80), title: s(h.title, 120), subtitle: s(h.subtitle, 300),
       btn1: link(h.btn1), btn2: link(h.btn2), image: s(h.image, 300), brands: arr(h.brands, 8, 40),
     },
     best: {
