@@ -2,6 +2,7 @@ import { handleScrape } from "../functions/api/scrape.js";
 import { handleProducts } from "../functions/api/products.js";
 import { handleImages, handleImageProxy } from "../functions/api/images.js";
 import { handleDiscounts } from "../functions/api/discounts.js";
+import { handleSettings } from "../functions/api/settings.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,10 @@ export default {
 
     if (path === "/api/img" || path.startsWith("/api/img/")) {
       return handleImages(request, env);
+    }
+
+    if (path === "/api/settings") {
+      return handleSettings(request, env);
     }
 
     if (path === "/api/discounts") {
