@@ -328,7 +328,8 @@ tbody tr.sel{background:#f0f4ff}
           <div class="field"><label>Botón 2: texto <small>(vacío = no se muestra)</small></label><input id="sB2t"></div>
           <div class="field"><label>Botón 2: a dónde lleva</label><input id="sB2l" list="linkOpts"></div>
         </div>
-        <div class="field"><label>Marcas de la franja <small>(separadas por comas)</small></label><input id="sBrands"></div>
+        <div class="field"><label>Franja bajo la portada</label><select id="sStrip"><option value="cats">Categorías (Zapatillas, Ropa, Tecnología…)</option><option value="brands">Marcas</option></select></div>
+        <div class="field"><label>Marcas de la franja <small>(solo si eliges Marcas; separadas por comas)</small></label><input id="sBrands"></div>
         <div class="field"><label>Imagen de portada <small>(opcional, aparece a la derecha)</small></label>
           <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
             <img id="sHeroImgPrev" alt="" style="height:56px;width:90px;object-fit:cover;background:#eee;display:none">
@@ -538,7 +539,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
    ════════════════════════════════════════════════════════════ */
 const SITE_DEFAULT = {
   announce: { show: true, items: ['Envío a toda España', 'Devolución 30 días', 'Pago seguro'] },
-  hero: { show: true, tag: 'Sneakers & Moda', title: 'ELEVA TU *ESTILO*', subtitle: 'Las mejores marcas sin pagar de más.',
+  hero: { show: true, strip: 'cats', tag: 'Sneakers & Moda', title: 'ELEVA TU *ESTILO*', subtitle: 'Las mejores marcas sin pagar de más.',
     btn1: { text: 'Ver todo', link: 'catalog' }, btn2: { text: 'Ver zapatillas', link: 'cat:Calzado' }, image: '',
     brands: ['Nike', 'Jordan', 'Adidas', 'Dior', 'Louis Vuitton', 'Golden Goose', 'Alexander McQueen', 'Off White', 'New Balance', 'Ralph Lauren', 'Apple'] },
   best: { show: true, title: 'Más vendidos', mode: 'auto', ids: [], max: 12, unique: true },
@@ -574,7 +575,7 @@ function renderSite() {
   $('sAnnShow').checked = site.announce.show; $('sAnnItems').value = site.announce.items.join('\n');
   $('sHeroShow').checked = h.show; $('sHeroTag').value = h.tag; $('sHeroTitle').value = h.title; $('sHeroSub').value = h.subtitle;
   $('sB1t').value = h.btn1.text; $('sB1l').value = h.btn1.link; $('sB2t').value = h.btn2.text; $('sB2l').value = h.btn2.link;
-  $('sBrands').value = h.brands.join(', ');
+  $('sBrands').value = h.brands.join(', '); $('sStrip').value = h.strip || 'cats';
   const pv = $('sHeroImgPrev'); if (h.image) { pv.src = h.image; pv.style.display = ''; } else pv.style.display = 'none';
   $('sBestShow').checked = site.best.show; $('sBestTitle').value = site.best.title; $('sBestMax').value = site.best.max;
   $('sBestMode').value = site.best.mode; $('sBestUnique').checked = site.best.unique;
@@ -636,7 +637,7 @@ function collectSite() {
   Object.assign(site.hero, {
     show: $('sHeroShow').checked, tag: $('sHeroTag').value.trim(), title: $('sHeroTitle').value.trim(), subtitle: $('sHeroSub').value.trim(),
     btn1: { text: $('sB1t').value.trim(), link: $('sB1l').value.trim() }, btn2: { text: $('sB2t').value.trim(), link: $('sB2l').value.trim() },
-    brands: $('sBrands').value.split(',').map((x) => x.trim()).filter(Boolean),
+    strip: $('sStrip').value, brands: $('sBrands').value.split(',').map((x) => x.trim()).filter(Boolean),
   });
   Object.assign(site.best, { show: $('sBestShow').checked, title: $('sBestTitle').value.trim() || 'Más vendidos', max: parseInt($('sBestMax').value, 10) || 12, mode: $('sBestMode').value, unique: $('sBestUnique').checked });
   site.tiles = { show: $('sTilesShow').checked, title: $('sTilesTitle').value.trim() || 'Compra por categoría' };
