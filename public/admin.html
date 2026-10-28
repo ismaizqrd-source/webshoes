@@ -280,6 +280,10 @@ tbody tr.sel{background:#f0f4ff}
           <label>Pegar código de la página <small style="font-weight:400;color:var(--gray)">(para webs que bloquean al servidor, como JD Sports: ábrela en tu navegador, pulsa Ctrl+U, Ctrl+A, Ctrl+C y pégalo aquí; el link de arriba es el de esa misma página)</small></label>
           <textarea id="impHtml" rows="2" placeholder="Opcional" style="width:100%;font-size:11px"></textarea>
         </div>
+        <div class="field">
+          <label>Marca para todos los productos <small style="font-weight:400;color:var(--gray)">(opcional: si pegas el link de una sola marca, ponla aquí y no hace falta que salga en el nombre)</small></label>
+          <input id="impBrand" placeholder="Ej.: Onitsuka Tiger">
+        </div>
         <div class="field" id="yupooOpts">
           <label>Para álbumes de Yupoo <small style="font-weight:400;color:var(--gray)">(el álbum no trae precio en euros: se usa este)</small></label>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -1427,7 +1431,7 @@ async function startImport() {
       if (!exact) dupIdx.add(s.title, s.url || '', 'batch', s.image || '');    // así también se detectan repetidos dentro de la importación
       const catFinal = (isYup && $('impCat').value) || s.category_guess || 'Calzado';
       return {
-        i, title: s.title || 'Producto importado', brand: s.brand || '', cat: catFinal, albumUrl: isYup ? (s.album_url || s.url) : '',
+        i, title: s.title || 'Producto importado', brand: $('impBrand').value.trim() || s.brand || '', cat: catFinal, albumUrl: isYup ? (s.album_url || s.url) : '',
         price, compare_price: reg > price && price > 0 ? reg : null, source: s.url || '',
         sizes: s.sizes && s.sizes.length ? s.sizes : defaultSizes(catFinal),
         srcImage: s.image || '', blob: null, preview: s.image || '', flipped: false,

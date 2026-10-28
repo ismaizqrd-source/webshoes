@@ -8,7 +8,7 @@ export const BRAND_DEFS = [
   ['Yeezy', ['yeezy', 'yezzy', 'yeezi']],
   ['Golden Goose', ['golden goose', 'goldengoose', 'ggdb']],
   ['Alexander McQueen', ['alexander mcqueen', 'alexander mqueen', 'alexander mc queen', 'mcqueen', 'mqueen', 'mc queen', 'm queen']],
-  ['Onitsuka Tiger', ['onitsuka tiger', 'onitsuka', 'mexico 66']],
+  ['Onitsuka Tiger', ['onitsuka tiger', 'onitsuka', 'mexico 66', 'tokuten', 'tai chi', 'gymnarina', 'gsm', 'serrano', 'okuru', 'lawnship', 'kihachi', 'california 78', 'ultimate 81', 'dualio', 'delegation', 'ohbori']],
   ['Nike', ['nike', 'nocta', 'air force 1', 'air max', 'dunk low', 'dunk high', 'tn plus', 'vomero', 'cortez']],
   ['Adidas', ['adidas', 'adidas originals', 'samba', 'gazelle', 'campus', 'spezial', 'superstar', 'stan smith', 'forum low', 'handball', 'adizero']],
   ['New Balance', ['new balance', 'nb 550', 'nb550', '9060']],
