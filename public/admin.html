@@ -69,10 +69,18 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px;min-width:0}
 .btn.block{width:100%}
 .err-box{background:var(--red-bg);color:var(--red);padding:.75rem 1rem;border-radius:var(--radius);font-size:12px;margin-bottom:1rem;display:none}
 .err-box.on{display:block}
-.ptable{width:100%;border-collapse:collapse;font-size:13px}
-.ptable th{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--border)}
-.ptable td{padding:.45rem .6rem;border-bottom:1px solid var(--border)}
-.ptable input{width:110px;padding:.4rem .5rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px}
+.pr-card{max-width:760px}
+.pr-inputs{display:flex;gap:.8rem;flex-wrap:wrap}
+.pr-inputs label,.pr-row label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:120px}
+.pr-inputs input,.pr-row input{width:100%;padding:.6rem .6rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:16px;color:var(--ink);background:#fff}
+.pr-row{border-top:1px solid var(--border);padding:.7rem 0}
+.pr-row .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.45rem;gap:.6rem}
+.pr-row .top b{font-size:14px}.pr-row .top small{color:var(--gray);font-size:11px;text-align:right}
+.pr-row .in{display:flex;gap:.6rem}
+.pr-prod{display:flex;gap:.7rem;align-items:center;border-top:1px solid var(--border);padding:.6rem 0;flex-wrap:wrap}
+.pr-prod img{width:48px;height:48px;object-fit:contain;background:#f5f5f3}
+.pr-prod .nm{flex:1 1 160px;min-width:0;font-size:13px}.pr-prod .nm small{display:block;color:var(--gray);font-size:11px}
+.pr-prod input{width:100px;padding:.55rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:16px}
 .panel-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem;margin-bottom:1rem;max-width:860px}
 .panel-card h3{font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:.9rem}
 .panel-card textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--border2);border-radius:var(--radius);font:inherit;font-size:13px}
@@ -192,7 +200,7 @@ tbody tr.sel{background:#f0f4ff}
     </div>
     <div class="nav-item" data-view="prices">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-      Precios por marca
+      Precios
     </div>
     <div class="nav-item" data-view="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
@@ -314,17 +322,33 @@ tbody tr.sel{background:#f0f4ff}
     <!-- ───── CUPONES ───── -->
     <div class="view" id="view-prices">
       <div class="view-head">
-        <div><h1>Precios por marca</h1><p>Pon un precio a todos los productos de una marca (o de una categoría) de una vez. Deja en blanco lo que no quieras tocar.</p></div>
-        <div class="head-actions"><button class="btn ghost" onclick="loadProducts().then(renderPrices)">Actualizar</button><button class="btn" id="btnPrices" onclick="applyPrices()">Aplicar precios</button></div>
+        <div><h1>Precios</h1><p>Pon el mismo precio a todos los productos de una marca, o a toda la tienda. Y si un artículo debe costar distinto, búscalo abajo.</p></div>
+        <div class="head-actions"><button class="btn" id="btnPrices" onclick="applyPrices()">Aplicar precios</button></div>
       </div>
       <div class="err-box" id="priceErr"></div>
-      <div class="panel-card" style="max-width:980px">
-        <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin-bottom:.9rem">
-          <select id="prGroup" onchange="renderPrices()" style="width:auto"><option value="brand">Agrupar por marca</option><option value="cat">Agrupar por categoría</option></select>
-          <input id="prFilter" placeholder="Buscar marca…" oninput="renderPrices(true)" style="width:200px">
-          <small style="color:var(--gray)">"Precio antes" es el precio tachado (pon 0 para quitarlo).</small>
+
+      <div class="panel-card pr-card">
+        <h3>1. Precio para toda la tienda <small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--gray)">(opcional)</small></h3>
+        <div class="pr-inputs">
+          <label>Precio (€)<input id="prAllPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="sin cambios"></label>
+          <label>Precio antes (€)<input id="prAllComp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="sin cambios"></label>
         </div>
-        <div style="overflow:auto"><table class="ptable"><thead><tr><th>Grupo</th><th>Productos</th><th>Precios actuales</th><th>Nuevo precio (€)</th><th>Precio antes (€)</th></tr></thead><tbody id="prBody"></tbody></table></div>
+      </div>
+
+      <div class="panel-card pr-card">
+        <h3>2. Precio por marca <small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--gray)">(gana al de toda la tienda)</small></h3>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem">
+          <select id="prGroup" onchange="renderPrices()" style="width:auto"><option value="brand">Por marca</option><option value="cat">Por categoría</option></select>
+          <input id="prFilter" placeholder="Filtrar la lista…" oninput="renderPrices(true)" style="flex:1;min-width:140px">
+        </div>
+        <div id="prBody"></div>
+      </div>
+      <div class="note">"Precio antes" es el precio tachado (pon 0 para quitarlo). Pulsa <b>Aplicar precios</b> para guardar los pasos 1 y 2.</div>
+
+      <div class="panel-card pr-card">
+        <h3>3. Un artículo con precio distinto</h3>
+        <input id="prSearch" placeholder="Busca un producto por nombre…" oninput="prSearch()" style="width:100%;padding:.65rem .75rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:14px;margin-bottom:.6rem">
+        <div id="prResults"></div>
       </div>
     </div>
 
@@ -554,7 +578,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
     document.getElementById('view-' + el.dataset.view).classList.add('active');
     if (el.dataset.view === 'coupons' && !couponsLoaded) loadCoupons();
     if (el.dataset.view === 'page') loadSite();
-    if (el.dataset.view === 'prices') renderPrices();
+    if (el.dataset.view === 'prices') { renderPrices(); prSearch(); }
   };
 });
 
@@ -563,36 +587,61 @@ document.querySelectorAll('.nav-item').forEach(el => {
 function renderPrices(keep) {
   const by = $('prGroup').value, q = $('prFilter').value.trim().toLowerCase();
   const saved = {};
-  if (keep) document.querySelectorAll('#prBody tr').forEach((tr) => { saved[tr.dataset.k] = [tr.querySelector('.np').value, tr.querySelector('.cp').value]; });
+  if (keep) document.querySelectorAll('#prBody .pr-row').forEach((r) => { saved[r.dataset.k] = [r.querySelector('.np').value, r.querySelector('.cp').value]; });
   const g = new Map();
   products.forEach((p) => {
     const k = by === 'brand' ? (p.brand || '').trim() : (p.cat || 'Calzado');
     const e = g.get(k) || { n: 0, min: Infinity, max: 0 }; e.n++; e.min = Math.min(e.min, +p.price || 0); e.max = Math.max(e.max, +p.price || 0); g.set(k, e);
   });
   const rows = [...g.entries()].filter(([k]) => !q || (k || 'sin marca').toLowerCase().includes(q)).sort((a, b) => b[1].n - a[1].n);
-  $('prBody').innerHTML = rows.map(([k, e]) => `<tr data-k="${esc(k)}">
-    <td><b>${esc(k || 'Sin marca')}</b></td><td>${e.n}</td>
-    <td>${e.min === e.max ? eur(e.min) : eur(e.min) + ' – ' + eur(e.max)}</td>
-    <td><input class="np" type="number" min="0" step="0.01" placeholder="sin cambios" value="${esc((saved[k] || [])[0] || '')}"></td>
-    <td><input class="cp" type="number" min="0" step="0.01" placeholder="sin cambios" value="${esc((saved[k] || [])[1] || '')}"></td></tr>`).join('');
+  $('prBody').innerHTML = rows.map(([k, e]) => `<div class="pr-row" data-k="${esc(k)}">
+    <div class="top"><b>${esc(k || 'Sin marca')}</b><small>${e.n} productos · ${e.min === e.max ? eur(e.min) : eur(e.min) + ' – ' + eur(e.max)}</small></div>
+    <div class="in"><label>Precio (€)<input class="np" type="number" inputmode="decimal" min="0" step="0.01" placeholder="sin cambios" value="${esc((saved[k] || [])[0] || '')}"></label>
+    <label>Precio antes (€)<input class="cp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="sin cambios" value="${esc((saved[k] || [])[1] || '')}"></label></div></div>`).join('') || '<p style="font-size:13px;color:var(--gray)">Sin resultados.</p>';
 }
 async function applyPrices() {
   showErr('priceErr', '');
   const by = $('prGroup').value, rules = [];
-  document.querySelectorAll('#prBody tr').forEach((tr) => {
-    const price = tr.querySelector('.np').value.trim(), cp = tr.querySelector('.cp').value.trim();
-    if (price !== '' || cp !== '') rules.push({ by, value: tr.dataset.k, ...(price !== '' ? { price } : {}), ...(cp !== '' ? { compare_price: cp } : {}) });
+  const ap = $('prAllPrice').value.trim(), ac = $('prAllComp').value.trim();
+  if (ap !== '' || ac !== '') rules.push({ by: 'all', ...(ap !== '' ? { price: ap } : {}), ...(ac !== '' ? { compare_price: ac } : {}) });
+  document.querySelectorAll('#prBody .pr-row').forEach((r) => {
+    const price = r.querySelector('.np').value.trim(), cp = r.querySelector('.cp').value.trim();
+    if (price !== '' || cp !== '') rules.push({ by, value: r.dataset.k, ...(price !== '' ? { price } : {}), ...(cp !== '' ? { compare_price: cp } : {}) });
   });
   if (!rules.length) return toast('Escribe algún precio nuevo.', 'err');
-  const n = rules.reduce((a, r) => a + products.filter((p) => (by === 'brand' ? (p.brand || '').trim().toLowerCase() : (p.cat || 'Calzado').toLowerCase()) === String(r.value).trim().toLowerCase()).length, 0);
-  if (!confirm(`Se cambiarán los precios de ${n} productos (${rules.length} ${by === 'brand' ? 'marcas' : 'categorías'}). ¿Continuar?`)) return;
+  const hasAll = rules[0].by === 'all';
+  const n = hasAll ? products.length : rules.reduce((a, r) => a + products.filter((p) => (by === 'brand' ? (p.brand || '').trim().toLowerCase() : (p.cat || 'Calzado').toLowerCase()) === String(r.value).trim().toLowerCase()).length, 0);
+  if (!confirm(`Se cambiarán los precios de ${hasAll ? 'toda la tienda (' + n + ' productos)' : n + ' productos'}. ¿Continuar?`)) return;
   const b = $('btnPrices'); b.disabled = true; b.textContent = 'Aplicando…';
   try {
     const r = await api('/api/products/prices', { method: 'POST', body: { rules } });
-    await loadProducts(); renderPrices();
-    toast(`Precios actualizados en ${r.changed} productos.`, 'ok');
+    await loadProducts(); $('prAllPrice').value = ''; $('prAllComp').value = ''; renderPrices(); prSearch();
+    toast(`Precios actualizados (${r.changed} cambios).`, 'ok');
   } catch (e) { showErr('priceErr', 'Error: ' + e.message); }
   b.disabled = false; b.textContent = 'Aplicar precios';
+}
+function prSearch() {
+  const q = $('prSearch').value.trim().toLowerCase();
+  if (q.length < 2) { $('prResults').innerHTML = '<p style="font-size:12px;color:var(--gray)">Escribe al menos 2 letras.</p>'; return; }
+  const res = products.filter((p) => (p.title + ' ' + (p.brand || '')).toLowerCase().includes(q)).slice(0, 15);
+  $('prResults').innerHTML = res.map((p) => `<div class="pr-prod" data-id="${esc(p.id)}">
+    <img src="${esc(p.image)}" alt=""><div class="nm">${esc(p.title)}<small>${esc(p.brand || 'Sin marca')} · ahora ${eur(p.price)}</small></div>
+    <input class="one" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(p.price)}">
+    <button class="btn sm" onclick="prSaveOne('${esc(p.id)}',this)">Guardar</button></div>`).join('') || '<p style="font-size:12px;color:var(--gray)">Sin resultados.</p>';
+}
+async function prSaveOne(id, btn) {
+  const row = btn.closest('.pr-prod'), v = parseFloat(row.querySelector('.one').value.replace(',', '.'));
+  if (!(v >= 0)) return toast('Precio no válido.', 'err');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const p = products.find((x) => x.id === id);
+    const fields = { price: v }; if (p && p.compare_price && p.compare_price <= v) fields.compare_price = null;
+    await api('/api/products/patch', { method: 'POST', body: { updates: [{ id, fields }] } });
+    if (p) { p.price = v; if (fields.compare_price === null) p.compare_price = null; }
+    btn.textContent = '✓';
+    row.querySelector('.nm small').textContent = (p ? (p.brand || 'Sin marca') : '') + ' · ahora ' + eur(v);
+    setTimeout(() => { btn.textContent = 'Guardar'; btn.disabled = false; }, 1200);
+  } catch (e) { toast('Error: ' + e.message, 'err'); btn.textContent = 'Guardar'; btn.disabled = false; }
 }
 
 /* ════════════════════════════════════════════════════════════

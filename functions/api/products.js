@@ -265,15 +265,17 @@ export async function handleProducts(request, env) {
 
     // precios por marca o categoría: { rules: [{ by:'brand'|'cat', value, price?, compare_price? }] }
     if (method === 'POST' && rest[0] === 'prices') {
-      const rules = (Array.isArray(body.rules) ? body.rules : []).filter((r) => r && (r.by === 'brand' || r.by === 'cat'));
+      const rules = (Array.isArray(body.rules) ? body.rules : []).filter((r) => r && (r.by === 'brand' || r.by === 'cat' || r.by === 'all'));
       if (!rules.length) return json({ error: 'Falta "rules".' }, 400);
       const norm = (v) => String(v ?? '').trim().toLowerCase();
       const result = rules.map(() => 0);
       const next = list.map((p) => {
         let q = p;
         rules.forEach((r, k) => {
-          const mine = r.by === 'brand' ? norm(p.brand) : norm(p.cat || 'Calzado');
-          if (mine !== norm(r.value)) return;
+          if (r.by !== 'all') {
+            const mine = r.by === 'brand' ? norm(p.brand) : norm(p.cat || 'Calzado');
+            if (mine !== norm(r.value)) return;
+          }
           const hasPrice = r.price !== undefined && r.price !== null && r.price !== '';
           const hasComp = r.compare_price !== undefined && r.compare_price !== null && r.compare_price !== '';
           const price = hasPrice ? num(r.price, NaN) : NaN;
