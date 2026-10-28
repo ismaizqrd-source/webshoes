@@ -69,6 +69,17 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px;min-width:0}
 .btn.block{width:100%}
 .err-box{background:var(--red-bg);color:var(--red);padding:.75rem 1rem;border-radius:var(--radius);font-size:12px;margin-bottom:1rem;display:none}
 .err-box.on{display:block}
+.rqc{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.9rem;max-width:860px;display:flex;gap:1rem;flex-wrap:wrap}
+.rqc img.ph{width:130px;height:130px;object-fit:cover;background:#f0f0ee;cursor:zoom-in;border:1px solid var(--border)}
+.rqc .nophoto{width:130px;height:130px;background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray)}
+.rqc .bd{flex:1;min-width:220px}
+.rqc h4{font-size:15px;margin-bottom:.2rem}.rqc .meta{font-size:12px;color:var(--gray);margin-bottom:.5rem;line-height:1.6}
+.rqc .note{background:#f6f6f4;color:var(--ink);padding:.5rem .7rem;font-size:13px;margin-bottom:.6rem;white-space:pre-wrap}
+.rqc .ans{display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end}
+.rqc .ans label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);display:flex;flex-direction:column;gap:.25rem}
+.rqc .ans input{padding:.55rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:16px}
+.rqc .st{display:inline-block;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;padding:2px 7px;margin-left:.4rem;vertical-align:middle}
+.rqc .st.new{background:#fdecea;color:#b3261e}.rqc .st.quoted{background:#e8f5ec;color:#1e7a3a}.rqc .st.closed{background:#eee;color:#666}
 .pr-card{max-width:760px}
 .pr-inputs{display:flex;gap:.8rem;flex-wrap:wrap}
 .pr-inputs label,.pr-row label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:120px}
@@ -198,6 +209,10 @@ tbody tr.sel{background:#f0f4ff}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
       Cupones
     </div>
+    <div class="nav-item" data-view="requests">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Solicitudes <span id="rqBadge" style="display:none;background:#c0392b;color:#fff;border-radius:9px;font-size:10px;padding:1px 6px;margin-left:6px"></span>
+    </div>
     <div class="nav-item" data-view="prices">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Precios
@@ -324,6 +339,15 @@ tbody tr.sel{background:#f0f4ff}
     </div>
 
     <!-- ───── CUPONES ───── -->
+    <div class="view" id="view-requests">
+      <div class="view-head">
+        <div><h1>Solicitudes</h1><p>Lo que piden los clientes desde "¿No encuentras tu producto?". Ponles el precio y contéstales.</p></div>
+        <div class="head-actions"><select id="rqFilter" onchange="renderRequests()" style="width:auto"><option value="open">Pendientes</option><option value="quoted">Con precio dado</option><option value="closed">Cerradas</option><option value="all">Todas</option></select><button class="btn ghost" onclick="loadRequests()">Actualizar</button></div>
+      </div>
+      <div class="err-box" id="rqAdmErr"></div>
+      <div id="rqList"></div>
+    </div>
+
     <div class="view" id="view-prices">
       <div class="view-head">
         <div><h1>Precios</h1><p>Pon el mismo precio a todos los productos de una marca, o a toda la tienda. Y si un artículo debe costar distinto, búscalo abajo.</p></div>
@@ -591,6 +615,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
     document.getElementById('view-' + el.dataset.view).classList.add('active');
     if (el.dataset.view === 'coupons' && !couponsLoaded) loadCoupons();
     if (el.dataset.view === 'page') loadSite();
+    if (el.dataset.view === 'requests') loadRequests();
     if (el.dataset.view === 'prices') { renderPrices(); prSearch(); }
   };
 });
@@ -670,6 +695,75 @@ async function prSaveOne(id, btn) {
     setTimeout(() => { btn.textContent = 'Guardar'; btn.disabled = false; }, 1200);
   } catch (e) { toast('Error: ' + e.message, 'err'); btn.textContent = 'Guardar'; btn.disabled = false; }
 }
+
+/* ════════ Solicitudes de clientes ════════ */
+let rqData = [];
+async function loadRequests() {
+  showErr('rqAdmErr', '');
+  try { const r = await api('/api/requests'); rqData = r.requests || []; renderRequests(); updateRqBadge(); }
+  catch (e) { showErr('rqAdmErr', 'No se pudieron cargar: ' + e.message); }
+}
+function updateRqBadge() {
+  const n = rqData.filter((r) => r.status === 'new').length, b = document.getElementById('rqBadge');
+  b.textContent = n; b.style.display = n ? '' : 'none';
+}
+function rqMsg(r) {
+  const nm = r.name ? ' ' + r.name : '';
+  return r.price !== null && r.price !== undefined
+    ? `Hola${nm}, sobre tu solicitud ${r.code} (${r.title}): el precio es ${Number(r.price).toFixed(2).replace('.', ',')} €.${r.reply ? ' ' + r.reply : ''} Puedes verlo también en la tienda con tu código.`
+    : `Hola${nm}, sobre tu solicitud ${r.code} (${r.title}):`;
+}
+function renderRequests() {
+  const f = $('rqFilter').value;
+  const list = rqData.filter((r) => f === 'all' || (f === 'open' ? r.status === 'new' : r.status === f));
+  const stTxt = { new: 'Nueva', quoted: 'Precio dado', closed: 'Cerrada' };
+  $('rqList').innerHTML = list.map((r) => {
+    const isMail = r.contact.includes('@'), digits = r.contact.replace(/[^\d+]/g, '');
+    const wa = !isMail ? 'https://wa.me/' + digits.replace(/^\+/, '').replace(/^(\d{9})$/, '34$1') + '?text=' + encodeURIComponent(rqMsg(r)) : '';
+    const mail = isMail ? 'mailto:' + encodeURIComponent(r.contact).replace('%40', '@') + '?subject=' + encodeURIComponent('Tu solicitud ' + r.code) + '&body=' + encodeURIComponent(rqMsg(r)) : '';
+    return `<div class="rqc" data-id="${esc(r.id)}">
+      ${r.image ? `<img class="ph" src="${esc(r.image)}" alt="" onclick="window.open('${esc(r.image)}','_blank')">` : '<div class="nophoto">Sin foto</div>'}
+      <div class="bd">
+        <h4>${esc(r.title)}<span class="st ${esc(r.status)}">${stTxt[r.status] || r.status}</span></h4>
+        <div class="meta">${esc(r.code)} · ${new Date(r.created).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}${r.size ? ' · Talla ' + esc(r.size) : ''}<br>
+          ${esc(r.name || 'Sin nombre')} · <b>${esc(r.contact)}</b></div>
+        ${r.note ? `<div class="note">${esc(r.note)}</div>` : ''}
+        <div class="ans">
+          <label>Precio (€)<input class="rp" type="number" inputmode="decimal" min="0" step="0.01" value="${r.price ?? ''}" style="width:110px"></label>
+          <label style="flex:1;min-width:160px">Mensaje para el cliente (opcional)<input class="rr" value="${esc(r.reply || '')}" maxlength="1000"></label>
+          <button class="btn sm" onclick="rqSave('${esc(r.id)}',this)">Guardar y marcar con precio</button>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
+          ${wa ? `<a class="btn sm ghost" href="${wa}" target="_blank" rel="noopener" onclick="rqPrep('${esc(r.id)}')">WhatsApp</a>` : ''}
+          ${mail ? `<a class="btn sm ghost" href="${mail}" onclick="rqPrep('${esc(r.id)}')">Email</a>` : ''}
+          ${r.status !== 'closed' ? `<button class="btn sm ghost" onclick="rqStatus('${esc(r.id)}','closed')">Cerrar</button>` : `<button class="btn sm ghost" onclick="rqStatus('${esc(r.id)}','new')">Reabrir</button>`}
+          <button class="btn sm ghost" style="color:#b3261e" onclick="rqDel('${esc(r.id)}')">Eliminar</button>
+        </div>
+      </div></div>`;
+  }).join('') || '<p style="font-size:13px;color:var(--gray)">No hay solicitudes aquí.</p>';
+}
+function rqCard(id) { return document.querySelector(`.rqc[data-id="${id}"]`); }
+function rqPrep(id) { /* los enlaces de WhatsApp/Email usan el mensaje del momento en que se pintó la tarjeta */ }
+async function rqSave(id, btn) {
+  const c = rqCard(id), price = c.querySelector('.rp').value.trim(), reply = c.querySelector('.rr').value;
+  if (price === '') return toast('Pon un precio.', 'err');
+  btn.disabled = true;
+  try {
+    await api('/api/requests/' + id, { method: 'POST', body: { price, reply, status: 'quoted' } });
+    const r = rqData.find((x) => x.id === id); Object.assign(r, { price: parseFloat(price.replace(',', '.')), reply, status: 'quoted' });
+    toast('Precio guardado. Ya lo puede ver el cliente con su código.', 'ok'); renderRequests(); updateRqBadge();
+  } catch (e) { toast('Error: ' + e.message, 'err'); btn.disabled = false; }
+}
+async function rqStatus(id, status) {
+  try { await api('/api/requests/' + id, { method: 'POST', body: { status } }); rqData.find((x) => x.id === id).status = status; renderRequests(); updateRqBadge(); }
+  catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+async function rqDel(id) {
+  if (!confirm('¿Eliminar esta solicitud y su foto?')) return;
+  try { await api('/api/requests/' + id, { method: 'DELETE' }); rqData = rqData.filter((x) => x.id !== id); renderRequests(); updateRqBadge(); }
+  catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
 
 /* ════════════════════════════════════════════════════════════
    Página (ajustes del inicio de la tienda)
@@ -863,6 +957,7 @@ async function loadProducts() {
     fillFilters();
     renderProducts();
     autoFixBrands();
+    if (!window.__rqBadgeLoaded) { window.__rqBadgeLoaded = true; loadRequests(); }
   } catch (e) {
     showErr('prodErr', 'No se pudieron cargar los productos: ' + e.message);
   }
