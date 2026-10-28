@@ -19,6 +19,8 @@
  * ════════════════════════════════════════════════════════════
  */
 
+import { detectBrandFromText } from './brands.js';
+
 export const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
@@ -261,6 +263,22 @@ export async function handleProducts(request, env) {
       const { next, changed } = applyBulk(list, body);
       await save(env, next);
       return json({ ok: true, changed, count: next.length });
+    }
+
+    // detectar la marca por el nombre: { mode: 'empty' (solo los sin marca) | 'all', preview?: true }
+    if (method === 'POST' && rest[0] === 'brands') {
+      const all = body.mode === 'all';
+      const counts = {}; let changed = 0, still = 0;
+      const next = list.map((p) => {
+        if (!all && String(p.brand || '').trim()) return p;
+        const b = detectBrandFromText(p.title);
+        if (!b) { if (!String(p.brand || '').trim()) still++; return p; }
+        if (b === p.brand) return p;
+        changed++; counts[b] = (counts[b] || 0) + 1;
+        return { ...p, brand: b };
+      });
+      if (changed && !body.preview) await save(env, next);
+      return json({ ok: true, changed, still_without_brand: still, brands: counts, applied: !!changed && !body.preview });
     }
 
     // precios por marca o categoría: { rules: [{ by:'brand'|'cat', value, price?, compare_price? }] }

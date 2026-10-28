@@ -12,6 +12,8 @@ const HARD_MAX_PAGES = 20;    // tope absoluto aunque se pida más (límite de s
 const DEFAULT_SIZES = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
 const DEFAULT_CATEGORY = 'Calzado';
 
+import { detectBrandFromText } from './brands.js';
+
 const KNOWN_BRANDS = [
   'The North Face', 'New Balance', 'Off-White', 'Louis Vuitton', 'Ralph Lauren',
   'Tommy Hilfiger', 'Calvin Klein', 'Hugo Boss', 'Under Armour', 'Stone Island',
@@ -155,11 +157,7 @@ const brandRegex = (b) =>
   new RegExp(`(^|[^a-z0-9])${b.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`, 'i');
 
 function matchKnownBrand(text) {
-  const t = String(text || '').toLowerCase().replace(/[-_]+/g, ' ');
-  for (const b of KNOWN_BRANDS) {
-    if (brandRegex(b.replace(/-/g, ' ')).test(t)) return b;
-  }
-  return '';
+  return detectBrandFromText(text);
 }
 
 function detectBrand(classes, title, fallbackText = '') {

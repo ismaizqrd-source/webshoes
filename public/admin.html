@@ -327,6 +327,15 @@ tbody tr.sel{background:#f0f4ff}
       </div>
       <div class="err-box" id="priceErr"></div>
 
+      <div class="panel-card pr-card" id="brandFixCard">
+        <h3>Marcas sin detectar</h3>
+        <p id="brandFixInfo" style="font-size:13px;margin-bottom:.7rem"></p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+          <button class="btn" onclick="detectBrands('empty')">Detectar marcas por el nombre</button>
+          <button class="btn ghost" onclick="detectBrands('all')">Revisar todas (también las ya puestas)</button>
+        </div>
+      </div>
+
       <div class="panel-card pr-card">
         <h3>1. Precio para toda la tienda <small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--gray)">(opcional)</small></h3>
         <div class="pr-inputs">
@@ -584,7 +593,21 @@ document.querySelectorAll('.nav-item').forEach(el => {
 
 
 /* ════════ Precios por marca / categoría ════════ */
+async function detectBrands(mode) {
+  showErr('priceErr', '');
+  try {
+    const pv = await api('/api/products/brands', { method: 'POST', body: { mode, preview: true } });
+    if (!pv.changed) { toast(pv.still_without_brand ? `No he podido reconocer la marca de ${pv.still_without_brand} productos por su nombre.` : 'Todas las marcas están al día.', 'ok'); return; }
+    const top = Object.entries(pv.brands).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k}: ${v}`).join('\n');
+    if (!confirm(`Se asignará marca a ${pv.changed} productos:\n\n${top}\n\n¿Aplicar?`)) return;
+    const r = await api('/api/products/brands', { method: 'POST', body: { mode } });
+    await loadProducts(); renderPrices();
+    toast(`Marcas asignadas a ${r.changed} productos.` + (r.still_without_brand ? ` Quedan ${r.still_without_brand} sin marca reconocida.` : ''), 'ok');
+  } catch (e) { showErr('priceErr', 'Error: ' + e.message); }
+}
 function renderPrices(keep) {
+  const nb = products.filter((p) => !String(p.brand || '').trim()).length;
+  $('brandFixInfo').textContent = nb ? `Hay ${nb} productos sin marca (Golden Goose, McQueen, Onitsuka Tiger…). Se reconoce la marca por el nombre.` : 'Todos los productos tienen marca.';
   const by = $('prGroup').value, q = $('prFilter').value.trim().toLowerCase();
   const saved = {};
   if (keep) document.querySelectorAll('#prBody .pr-row').forEach((r) => { saved[r.dataset.k] = [r.querySelector('.np').value, r.querySelector('.cp').value]; });
