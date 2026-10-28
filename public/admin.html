@@ -69,6 +69,10 @@ main{padding:2rem 2.5rem 6rem;max-width:1400px;min-width:0}
 .btn.block{width:100%}
 .err-box{background:var(--red-bg);color:var(--red);padding:.75rem 1rem;border-radius:var(--radius);font-size:12px;margin-bottom:1rem;display:none}
 .err-box.on{display:block}
+.ptable{width:100%;border-collapse:collapse;font-size:13px}
+.ptable th{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+.ptable td{padding:.45rem .6rem;border-bottom:1px solid var(--border)}
+.ptable input{width:110px;padding:.4rem .5rem;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px}
 .panel-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem;margin-bottom:1rem;max-width:860px}
 .panel-card h3{font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:.9rem}
 .panel-card textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--border2);border-radius:var(--radius);font:inherit;font-size:13px}
@@ -185,6 +189,10 @@ tbody tr.sel{background:#f0f4ff}
     <div class="nav-item" data-view="coupons">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
       Cupones
+    </div>
+    <div class="nav-item" data-view="prices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Precios por marca
     </div>
     <div class="nav-item" data-view="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
@@ -304,6 +312,22 @@ tbody tr.sel{background:#f0f4ff}
     </div>
 
     <!-- ───── CUPONES ───── -->
+    <div class="view" id="view-prices">
+      <div class="view-head">
+        <div><h1>Precios por marca</h1><p>Pon un precio a todos los productos de una marca (o de una categoría) de una vez. Deja en blanco lo que no quieras tocar.</p></div>
+        <div class="head-actions"><button class="btn ghost" onclick="loadProducts().then(renderPrices)">Actualizar</button><button class="btn" id="btnPrices" onclick="applyPrices()">Aplicar precios</button></div>
+      </div>
+      <div class="err-box" id="priceErr"></div>
+      <div class="panel-card" style="max-width:980px">
+        <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin-bottom:.9rem">
+          <select id="prGroup" onchange="renderPrices()" style="width:auto"><option value="brand">Agrupar por marca</option><option value="cat">Agrupar por categoría</option></select>
+          <input id="prFilter" placeholder="Buscar marca…" oninput="renderPrices(true)" style="width:200px">
+          <small style="color:var(--gray)">"Precio antes" es el precio tachado (pon 0 para quitarlo).</small>
+        </div>
+        <div style="overflow:auto"><table class="ptable"><thead><tr><th>Grupo</th><th>Productos</th><th>Precios actuales</th><th>Nuevo precio (€)</th><th>Precio antes (€)</th></tr></thead><tbody id="prBody"></tbody></table></div>
+      </div>
+    </div>
+
     <div class="view" id="view-page">
       <div class="view-head">
         <div><h1>Página</h1><p>Edita el inicio de la tienda: portada, más vendidos y categorías. Los cambios salen al pulsar Guardar.</p></div>
@@ -530,9 +554,46 @@ document.querySelectorAll('.nav-item').forEach(el => {
     document.getElementById('view-' + el.dataset.view).classList.add('active');
     if (el.dataset.view === 'coupons' && !couponsLoaded) loadCoupons();
     if (el.dataset.view === 'page') loadSite();
+    if (el.dataset.view === 'prices') renderPrices();
   };
 });
 
+
+/* ════════ Precios por marca / categoría ════════ */
+function renderPrices(keep) {
+  const by = $('prGroup').value, q = $('prFilter').value.trim().toLowerCase();
+  const saved = {};
+  if (keep) document.querySelectorAll('#prBody tr').forEach((tr) => { saved[tr.dataset.k] = [tr.querySelector('.np').value, tr.querySelector('.cp').value]; });
+  const g = new Map();
+  products.forEach((p) => {
+    const k = by === 'brand' ? (p.brand || '').trim() : (p.cat || 'Calzado');
+    const e = g.get(k) || { n: 0, min: Infinity, max: 0 }; e.n++; e.min = Math.min(e.min, +p.price || 0); e.max = Math.max(e.max, +p.price || 0); g.set(k, e);
+  });
+  const rows = [...g.entries()].filter(([k]) => !q || (k || 'sin marca').toLowerCase().includes(q)).sort((a, b) => b[1].n - a[1].n);
+  $('prBody').innerHTML = rows.map(([k, e]) => `<tr data-k="${esc(k)}">
+    <td><b>${esc(k || 'Sin marca')}</b></td><td>${e.n}</td>
+    <td>${e.min === e.max ? eur(e.min) : eur(e.min) + ' – ' + eur(e.max)}</td>
+    <td><input class="np" type="number" min="0" step="0.01" placeholder="sin cambios" value="${esc((saved[k] || [])[0] || '')}"></td>
+    <td><input class="cp" type="number" min="0" step="0.01" placeholder="sin cambios" value="${esc((saved[k] || [])[1] || '')}"></td></tr>`).join('');
+}
+async function applyPrices() {
+  showErr('priceErr', '');
+  const by = $('prGroup').value, rules = [];
+  document.querySelectorAll('#prBody tr').forEach((tr) => {
+    const price = tr.querySelector('.np').value.trim(), cp = tr.querySelector('.cp').value.trim();
+    if (price !== '' || cp !== '') rules.push({ by, value: tr.dataset.k, ...(price !== '' ? { price } : {}), ...(cp !== '' ? { compare_price: cp } : {}) });
+  });
+  if (!rules.length) return toast('Escribe algún precio nuevo.', 'err');
+  const n = rules.reduce((a, r) => a + products.filter((p) => (by === 'brand' ? (p.brand || '').trim().toLowerCase() : (p.cat || 'Calzado').toLowerCase()) === String(r.value).trim().toLowerCase()).length, 0);
+  if (!confirm(`Se cambiarán los precios de ${n} productos (${rules.length} ${by === 'brand' ? 'marcas' : 'categorías'}). ¿Continuar?`)) return;
+  const b = $('btnPrices'); b.disabled = true; b.textContent = 'Aplicando…';
+  try {
+    const r = await api('/api/products/prices', { method: 'POST', body: { rules } });
+    await loadProducts(); renderPrices();
+    toast(`Precios actualizados en ${r.changed} productos.`, 'ok');
+  } catch (e) { showErr('priceErr', 'Error: ' + e.message); }
+  b.disabled = false; b.textContent = 'Aplicar precios';
+}
 
 /* ════════════════════════════════════════════════════════════
    Página (ajustes del inicio de la tienda)

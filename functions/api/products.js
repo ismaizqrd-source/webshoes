@@ -263,6 +263,34 @@ export async function handleProducts(request, env) {
       return json({ ok: true, changed, count: next.length });
     }
 
+    // precios por marca o categoría: { rules: [{ by:'brand'|'cat', value, price?, compare_price? }] }
+    if (method === 'POST' && rest[0] === 'prices') {
+      const rules = (Array.isArray(body.rules) ? body.rules : []).filter((r) => r && (r.by === 'brand' || r.by === 'cat'));
+      if (!rules.length) return json({ error: 'Falta "rules".' }, 400);
+      const norm = (v) => String(v ?? '').trim().toLowerCase();
+      const result = rules.map(() => 0);
+      const next = list.map((p) => {
+        let q = p;
+        rules.forEach((r, k) => {
+          const mine = r.by === 'brand' ? norm(p.brand) : norm(p.cat || 'Calzado');
+          if (mine !== norm(r.value)) return;
+          const hasPrice = r.price !== undefined && r.price !== null && r.price !== '';
+          const hasComp = r.compare_price !== undefined && r.compare_price !== null && r.compare_price !== '';
+          const price = hasPrice ? num(r.price, NaN) : NaN;
+          if (hasPrice && !(price >= 0)) return;
+          q = { ...q };
+          if (hasPrice) q.price = price;
+          if (!hasComp && q.compare_price && q.compare_price <= (q.price || 0)) q.compare_price = null;
+          if (hasComp) { const c = num(r.compare_price, 0); q.compare_price = c > (q.price || 0) ? c : null; }
+          result[k]++;
+        });
+        return q;
+      });
+      const changed = result.reduce((a, b) => a + b, 0);
+      if (changed) await save(env, next);
+      return json({ ok: true, changed, per_rule: result });
+    }
+
     // editar varios a la vez, en una sola escritura (evita que ediciones simultáneas se pisen)
     if (method === 'POST' && rest[0] === 'patch') {
       const updates = Array.isArray(body.updates) ? body.updates : [];
