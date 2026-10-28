@@ -843,6 +843,17 @@ let selected = new Set();
 
 const isUnified = (p) => /^\/api\/img\//.test(p.image || '');
 
+// Al abrir el panel, los productos sin marca cuyo nombre la lleva (Golden Goose, Onitsuka…) la reciben solos, una vez por sesión
+let brandFixDone = false;
+async function autoFixBrands() {
+  if (brandFixDone || !products.some((p) => !String(p.brand || '').trim())) return;
+  brandFixDone = true;
+  try {
+    const r = await api('/api/products/brands', { method: 'POST', body: { mode: 'empty' } });
+    if (r.changed) { toast(`Marca asignada automáticamente a ${r.changed} productos.`, 'ok'); await loadProducts(); }
+  } catch { /* se puede hacer a mano en Precios */ }
+}
+
 async function loadProducts() {
   try {
     showErr('prodErr', '');
@@ -851,6 +862,7 @@ async function loadProducts() {
     selected = new Set([...selected].filter((id) => products.some((p) => p.id === id)));
     fillFilters();
     renderProducts();
+    autoFixBrands();
   } catch (e) {
     showErr('prodErr', 'No se pudieron cargar los productos: ' + e.message);
   }
