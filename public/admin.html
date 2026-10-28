@@ -928,6 +928,7 @@ function editProd(id) {
   $('f-title').value = p.title || '';
   $('f-brand').value = p.brand || '';
   $('f-cat').value = p.cat || 'Calzado';
+  autoBrand();
   $('f-price').value = p.price ?? '';
   $('f-compare').value = p.compare_price ?? '';
   $('f-cost').value = p.cost ?? '';
@@ -1562,6 +1563,21 @@ async function finishBackground(c) {
   } catch (e) { bg.fail++; }
   settle();
 }
+
+// Rellena la marca sola al escribir el título (solo si la casilla está vacía o tiene una marca puesta antes automáticamente)
+let autoBrandVal = '', autoBrandT = null;
+function autoBrand() {
+  clearTimeout(autoBrandT);
+  autoBrandT = setTimeout(async () => {
+    const bf = $('f-brand'), title = $('f-title').value.trim();
+    if (!title || (bf.value.trim() && bf.value !== autoBrandVal)) return;
+    try {
+      const r = await api('/api/products/brands', { method: 'POST', body: { title } });
+      if (r.brand && (!bf.value.trim() || bf.value === autoBrandVal)) { bf.value = r.brand; autoBrandVal = r.brand; }
+    } catch { /* sin sugerencia */ }
+  }, 300);
+}
+$('f-title').addEventListener('input', autoBrand);
 
 async function saveImport() {
   const chosen = imp.filter((c) => c.on);
