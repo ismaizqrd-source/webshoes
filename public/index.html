@@ -409,6 +409,35 @@ footer a:hover{color:var(--white)}
   .prod-checks{grid-template-columns:1fr}
 }
 
+
+/* ───── ¿No encuentras tu producto? ───── */
+.rq-band{margin:2.6rem 0 0;border:1px solid var(--border);background:#111;color:#fff;padding:2rem;display:flex;gap:1.4rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.rq-band h3{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;font-weight:400;margin-bottom:.3rem}
+.rq-band p{font-size:13px;color:#bbb;max-width:560px;line-height:1.6}
+.rq-band .btn-org{background:#fff;color:#111}
+.rq-band .btn-org:hover{background:#ddd}
+.rq-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 12px}
+.rq-ov.on{display:flex}
+.rq-box{background:#fff;width:100%;max-width:520px;padding:1.6rem 1.5rem 1.8rem;position:relative}
+.rq-box h2{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;font-weight:400;margin-bottom:.3rem}
+.rq-box .sub{font-size:13px;color:var(--gray);line-height:1.6;margin-bottom:1rem}
+.rq-x{position:absolute;right:14px;top:10px;background:none;border:0;font-size:26px;cursor:pointer;line-height:1}
+.rq-tabs{display:flex;gap:0;margin-bottom:1rem;border-bottom:1px solid var(--border)}
+.rq-tabs button{background:none;border:0;padding:.6rem 1rem;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--gray);border-bottom:2px solid transparent;margin-bottom:-1px}
+.rq-tabs button.on{color:#111;border-bottom-color:#111}
+.rq-f{margin-bottom:.85rem}
+.rq-f label{display:block;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);margin-bottom:.3rem}
+.rq-f input,.rq-f textarea{width:100%;padding:.7rem .75rem;border:1px solid var(--border);font:inherit;font-size:16px;background:#fff;color:#111}
+.rq-f textarea{min-height:76px;resize:vertical}
+.rq-row{display:flex;gap:.7rem}.rq-row>*{flex:1;min-width:0}
+.rq-drop{border:1.5px dashed #bbb;padding:1.1rem;text-align:center;cursor:pointer;background:#fafafa;font-size:13px;color:var(--gray)}
+.rq-drop img{max-width:100%;max-height:200px;display:block;margin:0 auto .5rem}
+.rq-err{background:#fdecea;color:#b3261e;padding:.6rem .8rem;font-size:13px;margin-bottom:.8rem;display:none}
+.rq-err.on{display:block}
+.rq-code{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:4px;text-align:center;border:1px dashed #111;padding:.5rem;margin:.8rem 0}
+.rq-res{border:1px solid var(--border);padding:1rem;margin-top:.8rem;font-size:14px;line-height:1.6}
+.rq-res .pr{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:1px}
+.rq-hp{position:absolute;left:-9999px;opacity:0}
 /* ───── Rediseño de portada: compacta, por categorías ───── */
 .hero{min-height:0;grid-template-columns:1fr}
 .hero-l{padding:1.8rem 2rem 1.6rem;border-right:none;border-bottom:1px solid var(--border);align-items:flex-start}
@@ -578,6 +607,14 @@ footer a:hover{color:var(--white)}
 
     <!-- UNA FILA POR CATEGORÍA -->
     <div id="catRows"></div>
+
+    <!-- ¿NO ENCUENTRAS TU PRODUCTO? -->
+    <div class="home-sec">
+      <div class="rq-band">
+        <div><h3>¿No encuentras tu producto?</h3><p>Súbenos una foto y el nombre de lo que buscas. Lo localizamos y te decimos el precio, sin compromiso.</p></div>
+        <span class="btn-org" style="cursor:pointer" onclick="openRequest()">Pedir un producto</span>
+      </div>
+    </div>
   </div>
 
   <!-- CATÁLOGO (categoría, marca, búsqueda o todo) -->
@@ -652,6 +689,7 @@ footer a:hover{color:var(--white)}
     </ul></div>
     <div><h4>Ayuda</h4><ul>
       <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSc3XgnRNcf5AbYIuIcgRASTHm79ejFCGfsoCb6g-eknpkWqRA/viewform" target="_blank">Devoluciones</a></li>
+      <li><a onclick="openRequest()" style="cursor:pointer">¿No encuentras tu producto?</a></li>
       <li><a href="mailto:resellingorder@gmail.com">Contacto</a></li>
       <li><a href="https://www.resellyourorder.com/p/preguntas-frecuentes-faqs" target="_blank">FAQs</a></li>
     </ul></div>
@@ -1227,7 +1265,7 @@ function renderGrid(list){
   const g=document.getElementById('pgrid');
   g.innerHTML='';
   if(!list.length){
-    g.innerHTML='<p style="padding:3rem;color:var(--gray);grid-column:1/-1">No se encontraron productos.</p>';
+    g.innerHTML='<p style="padding:3rem;color:var(--gray);grid-column:1/-1">No se encontraron productos. <a onclick="openRequest()" style="cursor:pointer;color:#111;text-decoration:underline">¿Lo buscamos por ti?</a></p>';
     document.getElementById('loadMore').innerHTML='';
     return;
   }
@@ -1347,6 +1385,56 @@ async function sendChat(){
 // INIT
 // ════════════════════════════════════════
 updateCartBadge();
+
+/* ───── Solicitud de producto ───── */
+let rqImg='';
+const rqE=id=>document.getElementById(id);
+function openRequest(){ rqE('rqOv').classList.add('on'); document.body.style.overflow='hidden'; try{ const c=localStorage.getItem('rqCode'); if(c) rqE('rqLook').value=c; }catch(e){} }
+function closeRequest(){ rqE('rqOv').classList.remove('on'); document.body.style.overflow=''; }
+function rqTab(n){ rqE('rqP1').style.display=n===1?'':'none'; rqE('rqP2').style.display=n===2?'':'none'; rqE('rqT1').classList.toggle('on',n===1); rqE('rqT2').classList.toggle('on',n===2); }
+function rqShowErr(id,m){ const e=rqE(id); e.textContent=m||''; e.classList.toggle('on',!!m); }
+function rqReset(){ rqE('rqForm').reset(); rqImg=''; rqE('rqPrev').style.display='none'; rqE('rqDropT').textContent='Toca para subir una foto'; rqE('rqForm').style.display=''; rqE('rqDone').style.display='none'; rqShowErr('rqErr',''); }
+async function rqPick(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  try{
+    const bmp=await createImageBitmap(f);
+    const sc=Math.min(1,1000/Math.max(bmp.width,bmp.height));
+    const c=document.createElement('canvas'); c.width=Math.round(bmp.width*sc); c.height=Math.round(bmp.height*sc);
+    const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(bmp,0,0,c.width,c.height);
+    rqImg=c.toDataURL('image/jpeg',0.82);
+    rqE('rqPrev').src=rqImg; rqE('rqPrev').style.display='block'; rqE('rqDropT').textContent='Cambiar foto';
+    rqShowErr('rqErr','');
+  }catch(e){ rqImg=''; rqShowErr('rqErr','No hemos podido leer esa foto. Prueba con otra (JPG o PNG).'); }
+}
+async function rqSubmit(ev){
+  ev.preventDefault();
+  const title=rqE('rqTitle').value.trim(), contact=rqE('rqContact').value.trim();
+  if(title.length<3) return rqShowErr('rqErr','Escribe qué producto buscas.');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contact)&&!/^\+?[\d\s().-]{7,20}$/.test(contact)) return rqShowErr('rqErr','Pon un email o un teléfono válido para poder contestarte.');
+  const b=rqE('rqSend'); b.disabled=true; b.textContent='Enviando…'; rqShowErr('rqErr','');
+  try{
+    const r=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,note:rqE('rqNote').value,size:rqE('rqSize').value,name:rqE('rqName').value,contact,image:rqImg,website:rqE('rqHp').value})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||'No se pudo enviar. Inténtalo de nuevo.');
+    rqE('rqCode').textContent=d.code; rqE('rqLook').value=d.code;
+    try{ localStorage.setItem('rqCode',d.code); }catch(e){}
+    rqE('rqForm').style.display='none'; rqE('rqDone').style.display='';
+  }catch(e){ rqShowErr('rqErr',e.message); }
+  b.disabled=false; b.textContent='Enviar solicitud';
+}
+async function rqLookup(){
+  const code=rqE('rqLook').value.trim().toUpperCase(); rqShowErr('rqErr2',''); rqE('rqRes').innerHTML='';
+  if(!code) return rqShowErr('rqErr2','Escribe tu código.');
+  try{
+    const r=await fetch('/api/requests/status?code='+encodeURIComponent(code)); const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'No encontrado');
+    const q=d.request, quoted=q.price!==null&&q.price!==undefined;
+    rqE('rqRes').innerHTML='<div class="rq-res"><b>'+esc(q.title)+'</b><br>'+
+      (quoted?'<span class="pr">'+Number(q.price).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €</span>'+(q.reply?'<br>'+esc(q.reply):'')
+             :'Estamos buscando tu producto. Te avisaremos en cuanto tengamos el precio.')+'</div>';
+  }catch(e){ rqShowErr('rqErr2',e.message); }
+}
+
 let startedShop=false;
 function startShop(){
   startedShop=true;
@@ -1370,5 +1458,45 @@ function startShop(){
   });
 })();
 </script>
+
+<!-- Solicitud de producto -->
+<div class="rq-ov" id="rqOv" onclick="if(event.target===this)closeRequest()">
+  <div class="rq-box">
+    <button class="rq-x" onclick="closeRequest()" aria-label="Cerrar">×</button>
+    <h2>¿No encuentras tu producto?</h2>
+    <p class="sub">Cuéntanos qué buscas y te respondemos con el precio.</p>
+    <div class="rq-tabs"><button id="rqT1" class="on" onclick="rqTab(1)">Enviar solicitud</button><button id="rqT2" onclick="rqTab(2)">Ver mi solicitud</button></div>
+
+    <div id="rqP1">
+      <form id="rqForm" onsubmit="rqSubmit(event)" novalidate>
+        <div class="rq-err" id="rqErr"></div>
+        <div class="rq-f"><label>Foto del producto</label>
+          <label class="rq-drop" id="rqDrop"><img id="rqPrev" alt="" style="display:none"><span id="rqDropT">Toca para subir una foto</span>
+            <input type="file" id="rqFile" accept="image/*" style="display:none" onchange="rqPick(this)"></label></div>
+        <div class="rq-f"><label>¿Qué producto buscas? *</label><input id="rqTitle" maxlength="140" placeholder="Ej.: Nike Air Max 95 negras"></div>
+        <div class="rq-f"><label>Detalles o enlace <span style="text-transform:none;letter-spacing:0">(opcional)</span></label><textarea id="rqNote" maxlength="1000" placeholder="Color, modelo, enlace donde lo has visto…"></textarea></div>
+        <div class="rq-row">
+          <div class="rq-f"><label>Talla</label><input id="rqSize" maxlength="40" placeholder="Ej.: 42"></div>
+          <div class="rq-f"><label>Tu nombre</label><input id="rqName" maxlength="80" autocomplete="name"></div>
+        </div>
+        <div class="rq-f"><label>Email o teléfono *</label><input id="rqContact" maxlength="120" autocomplete="email" placeholder="Para enviarte el precio"></div>
+        <input class="rq-hp" id="rqHp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn-org" id="rqSend" type="submit" style="border:0;width:100%;cursor:pointer">Enviar solicitud</button>
+      </form>
+      <div id="rqDone" style="display:none">
+        <p class="sub" style="margin-top:.4rem">¡Recibido! Te contestaremos con el precio lo antes posible. Guarda este código para consultar tu solicitud:</p>
+        <div class="rq-code" id="rqCode"></div>
+        <button class="btn-ghost" style="width:100%;cursor:pointer" onclick="rqReset()">Enviar otra solicitud</button>
+      </div>
+    </div>
+
+    <div id="rqP2" style="display:none">
+      <div class="rq-err" id="rqErr2"></div>
+      <div class="rq-f"><label>Tu código</label><input id="rqLook" placeholder="SOL-XXXXXX" style="text-transform:uppercase"></div>
+      <button class="btn-org" style="border:0;width:100%;cursor:pointer" onclick="rqLookup()">Consultar</button>
+      <div id="rqRes"></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
