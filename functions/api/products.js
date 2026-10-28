@@ -237,7 +237,7 @@ export async function handleProducts(request, env) {
           price: f.price ?? 0,
           compare_price: f.compare_price ?? null,
           cat: f.cat || 'Calzado',
-          brand: f.brand || '',
+          brand: f.brand || detectBrandFromText(f.title),
           image: f.image || '/img/_placeholder.webp',
           sizes: f.sizes || [],
           cost: f.cost ?? 0,
@@ -267,6 +267,7 @@ export async function handleProducts(request, env) {
 
     // detectar la marca por el nombre: { mode: 'empty' (solo los sin marca) | 'all', preview?: true }
     if (method === 'POST' && rest[0] === 'brands') {
+      if (typeof body.title === 'string') return json({ ok: true, brand: detectBrandFromText(body.title) });
       const all = body.mode === 'all';
       const counts = {}; let changed = 0, still = 0;
       const next = list.map((p) => {
@@ -323,6 +324,7 @@ export async function handleProducts(request, env) {
         const f = pickFields(u.fields || {});
         if ('title' in f && !f.title) continue;
         list[i] = { ...list[i], ...f };
+        if (!String(list[i].brand || '').trim()) list[i].brand = detectBrandFromText(list[i].title);
         if (list[i].bestseller === false) delete list[i].bestseller;
         changed++;
       }
@@ -337,6 +339,7 @@ export async function handleProducts(request, env) {
       const f = pickFields(body.product || body);
       if ('title' in f && !f.title) return json({ error: 'El título no puede estar vacío.' }, 400);
       list[i] = { ...list[i], ...f };
+      if (!String(list[i].brand || '').trim()) list[i].brand = detectBrandFromText(list[i].title);
       if (list[i].bestseller === false) delete list[i].bestseller;
       await save(env, list);
       return json({ ok: true, product: list[i] });
