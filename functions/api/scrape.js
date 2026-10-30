@@ -452,7 +452,7 @@ async function tryStoreApi(target, startPage, maxPages, via) {
 
 /* ---------- respaldo: listados que no usan la estructura li.product ----- */
 
-const isProductHref = (h) => /\/(producto|product|p)\/[^/?#]+/i.test(h) && !/\/(product-category|categoria-producto)\//i.test(h);
+const isProductHref = (h) => /\/(producto|productos|product|products|p|item|items|articulo|shop\/p)\/[^/?#]+/i.test(h) && !/\/(product-category|categoria-producto)\//i.test(h) && !/\.(?:jpe?g|png|gif|webp|svg|css|js)(?:\?|$)/i.test(h);
 
 function extractGenericItems(html, base) {
   const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>/gi;
@@ -463,28 +463,43 @@ function extractGenericItems(html, base) {
     const href = decode(m[1]);
     if (!isProductHref(href)) continue;
     const abs = absUrl(href, base).split('?')[0];
-    if (seen.has(abs)) continue;
-    seen.add(abs); marks.push({ index: m.index, url: abs });
+    // el mismo producto puede enlazarse varias veces (foto, título, /collections/x/products/y): cuenta una sola vez
+    const canon = abs.replace(/^(https?:\/\/[^/]+)(?:\/[a-z]{2}(?:-[a-z]{2})?)?\/collections\/[^/]+(\/products\/)/i, '$1$2').replace(/\/+$/, '').toLowerCase();
+    if (seen.has(canon)) continue;
+    seen.add(canon); marks.push({ index: m.index, url: abs });
   }
   return marks.map((mk, i) => ({ url: mk.url, block: html.slice(mk.index, i + 1 < marks.length ? marks[i + 1].index : mk.index + 5000) }));
 }
 
 function parseGenericItem({ url, block }, base, categoryHint) {
-  const hm = block.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  const clean = block.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, '');
+  const hm = clean.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
   let title = hm ? stripTags(hm[1]) : '';
-  const firstA = (block.match(/<a\b[^>]*>/i) || [''])[0];
+  const firstA = (clean.match(/<a\b[^>]*>/i) || [''])[0];
   if (!title) title = attr(firstA, 'title') || attr(firstA, 'aria-label');
-  if (!title) title = attr((block.match(/<img\b[^>]*>/i) || [''])[0], 'alt');
-  const text = stripTags(block.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ''));
-  const pre = [...text.matchAll(/€\s?(\d{1,5}(?:[.,]\d{1,2})?)/g)].map((x) => parseNumber(x[1]));
-  const suf = [...text.matchAll(/(\d{1,5}(?:[.,]\d{1,2})?)\s?€(?!\s?\d)/g)].map((x) => parseNumber(x[1]));
+  // temas de Shopify y similares: <div class="product-title">Nombre</div> o el texto del enlace
+  if (!title) {
+    const tm = clean.match(/<(?:div|span|p|a)\b[^>]*class=["'][^"']*(?:title|name|nombre)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|span|p|a)>/i);
+    if (tm) title = stripTags(tm[1]);
+  }
+  if (!title) {
+    const am = clean.match(/<a\b[^>]*>([^<]{3,})<\/a>/i);
+    if (am) title = stripTags(am[1]);
+  }
+  if (!title) title = attr((clean.match(/<img\b[^>]*>/i) || [''])[0], 'alt');
+  const text = stripTags(clean);
+  // precios con €, $ o £, delante o detrás de la cifra
+  const num = '(\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{1,2})?|\\d{1,5}(?:[.,]\\d{1,2})?)';
+  const pre = [...text.matchAll(new RegExp('[€$£]\\s?' + num, 'g'))].map((x) => parseNumber(x[1]));
+  const suf = [...text.matchAll(new RegExp(num + '\\s?(?:€|EUR|USD|GBP)(?!\\s?\\d)', 'g'))].map((x) => parseNumber(x[1]));
   const money = (pre.length ? pre : suf).filter((n) => n > 0);
   const price = money.length ? Math.min(...money) : null;
   const regular = money.length > 1 ? Math.max(...money) : price;
+  const currency = /\$/.test(text) && !/€/.test(text) ? 'USD' : /£/.test(text) && !/€/.test(text) ? 'GBP' : 'EUR';
   return {
-    id: '', sku: '', title, price, regular_price: regular, sale_price: regular > price ? price : null,
-    price_text: price != null ? String(price) : '', currency: 'EUR',
-    image: extractImage(block, base), url, brand: detectBrand('', title, categoryHint), in_stock: true,
+    id: '', sku: '', title: title.replace(/\s+/g, ' ').trim(), price, regular_price: regular, sale_price: regular > price ? price : null,
+    price_text: price != null ? String(price) : '', currency,
+    image: extractImage(clean, base), url, brand: detectBrand('', title, categoryHint), in_stock: !/sold out|agotado|out of stock/i.test(text),
   };
 }
 
