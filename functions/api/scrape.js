@@ -1,7 +1,4 @@
 // functions/api/scrape.js
-// POST /api/scrape   Body: { "url": "...", "max_pages": 10 (opcional) }
-// Universal Scraper: WooCommerce, Shopify, Yupoo, JSON-LD, y HTML Genérico.
-
 const DEFAULT_MAX_PAGES = 10;
 const HARD_MAX_PAGES = 20;
 const DEFAULT_CATEGORY = 'Calzado';
@@ -38,7 +35,6 @@ const withPanelFields = (p, sourceUrl, hint = '') => ({
 });
 
 /* ------------------- Categorización inteligente ---------------- ------------- */
-
 const RE_TECH = /\b(airpods?|iphone|ipad|macbook|airtag|apple watch|smartwatch|auriculares|cascos|altavoz|speaker|jbl|bose|samsung|galaxy|playstation|ps[345]|xbox|nintendo|consola|cargador|power ?bank|tablet|port[aá]til|laptop|c[aá]mara|gopro|dji|dyson|secador|teclado|monitor|televisor|airfryer|drone|tecnolog[ií]a|electr[oó]nica)\b/i;
 const RE_CLOTHES = /\b(camiseta|camisa|polo|sudadera|hoodie|jersey|su[eé]ter|sweater|cardigan|chaqueta|cazadora|jacket|puffer|abrigo|parka|chaleco|gilet|pantal[oó]n|pants|vaquero|jeans|shorts?|bermuda|ch[aá]ndal|tracksuit|falda|vestido|ba[nñ]ador|fleece|t-?shirt|tee|ropa)\b/i;
 const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?)\b/i;
@@ -51,7 +47,6 @@ function guessCategory(title, hint = '') {
 const decodeURIComponentSafe = (x) => { try { return decodeURIComponent(String(x || '')); } catch { return String(x || ''); } };
 
 /* ----------------------------- Utilidades ----------------------------- */
-
 const NAMED = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
   euro: '€', pound: '£', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“',
@@ -104,53 +99,71 @@ function currencyOf(text) {
   return 'EUR';
 }
 
-function parsePrice(fragment) {
-  const start = fragment.search(/class=["'][^"']*\bprice\b/i);
-  if (start === -1) return { price: null, regular_price: null, sale_price: null, price_text: '', currency: 'EUR' };
-
-  const tagStart = fragment.lastIndexOf('<', start);
-  let seg = fragment.slice(tagStart === -1 ? start : tagStart, start + 1500);
-  const ins = seg.match(/<ins[\s\S]*?<\/ins>/i);
-  const del = seg.match(/<del[\s\S]*?<\/del>/i);
-
-  if (ins) {
-    const sale = parseNumber(stripTags(ins[0]));
-    const regular = del ? parseNumber(stripTags(del[0])) : null;
-    return { price: sale, regular_price: regular, sale_price: sale, price_text: stripTags(ins[0]), currency: currencyOf(stripTags(seg)) };
-  }
-
-  const text = stripTags(seg.split(/<\/p>|<\/li>/i)[0]);
-  const value = parseNumber(text);
-  return { price: value, regular_price: value, sale_price: null, price_text: text, currency: currencyOf(text) };
-}
-
 function matchKnownBrand(text) {
   return detectBrandFromText(text);
-}
-
-function detectBrand(classes, title, fallbackText = '') {
-  const fromTitle = matchKnownBrand(title);
-  if (fromTitle) return fromTitle;
-  return matchKnownBrand(fallbackText) || '';
 }
 
 function fullSize(u) {
   return u.replace(/-\d{2,4}x\d{2,4}(?=\.(?:jpe?g|png|webp|gif)(?:\?|$))/i, '');
 }
 
-function extractImage(block, base) {
-  const imgs = block.match(/<img\b[^>]*>/gi) || [];
-  for (const tag of imgs) {
-    const candidates = [
-      attr(tag, 'data-lazy-src'),
-      attr(tag, 'data-src'),
-      attr(tag, 'data-orig-src'),
-      attr(tag, 'src'),
-    ];
-    const found = candidates.find((c) => c && !c.startsWith('data:'));
-    if (found) return fullSize(absUrl(found, base));
+/* ------------------------ Extracción por JSON-LD Universal ------------ */
+function ldProducts(html, base) {
+  const out = [];
+  const walk = (n) => {
+    if (!n || typeof n !== 'object') return;
+    if (Array.isArray(n)) return n.forEach(walk);
+    const t = [].concat(n['@type'] || []).join(' ');
+    if (/Product/i.test(t) && n.name) {
+      const offer = [].concat(n.offers || [])[0] || {};
+      const price = parseNumber(offer.price ?? offer.lowPrice ?? (offer.priceSpecification || {}).price);
+      let img = [].concat(n.image || [])[0];
+      if (img && typeof img === 'object') img = img.url || img.contentUrl || '';
+      
+      out.push({
+        title: decode(String(n.name)), 
+        image: img ? absUrl(String(img), base) : '',
+        url: n.url ? absUrl(String(n.url), base) : (offer.url ? absUrl(String(offer.url), base) : base),
+        price: price > 0 ? price : null,
+        regular_price: price,
+        sale_price: null,
+        price_text: price ? String(price) : '',
+        currency: offer.priceCurrency || 'EUR',
+        brand: typeof n.brand === 'string' ? n.brand : (n.brand && n.brand.name) || '',
+        in_stock: true,
+      });
+    }
+    for (const k of ['itemListElement', 'item', '@graph', 'mainEntity']) if (n[k]) walk(n[k]);
+  };
+
+  for (const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { 
+      const jsonParsed = JSON.parse(m[1].trim());
+      walk(jsonParsed); 
+    } catch { /* ignorar bloques malformados */ }
   }
-  return '';
+  return out;
+}
+
+function parsePastedHtml(html, target) {
+  const base = target.href;
+  const hint = decodeURIComponent(target.pathname);
+  const products = [];
+  const seen = new Set();
+
+  const items = ldProducts(html, base);
+  for (const p of items) {
+    const key = p.url || p.title;
+    if (!p.title || seen.has(key)) continue;
+    seen.add(key);
+    products.push(withPanelFields({
+      id: '', sku: '', title: p.title, price: p.price, regular_price: p.regular_price, sale_price: p.sale_price,
+      price_text: p.price_text, currency: p.currency, image: p.image, url: p.url,
+      brand: p.brand || matchKnownBrand(p.title), in_stock: p.in_stock,
+    }, base, hint));
+  }
+
+  return products;
 }
 
 /* ------------------------------- SHOPIFY API -------------------------- */
@@ -184,7 +197,7 @@ async function tryShopifyApi(target, maxPages) {
           title: decode(item.title),
           price,
           regular_price: regular,
-          sale_price: regular && price && sale < regular ? price : null,
+          sale_price: regular && price && price < regular ? price : null,
           price_text: variant.price ? String(variant.price) : '',
           currency: 'USD',
           image: item.images?.[0]?.src ? fullSize(item.images[0].src) : '',
@@ -216,7 +229,6 @@ async function tryShopifyApi(target, maxPages) {
 }
 
 /* --------------------------- WooCommerce Store API -------------------- */
-const STORE_PER_PAGE = 100;
 const WC_MARKERS = ['categoria-producto', 'product-category', 'tienda', 'shop', 'producto', 'product', 'categoria'];
 
 async function fetchJsonRetry(url) {
@@ -249,7 +261,6 @@ async function tryStoreApi(target) {
   }
   if (!base) return null;
   
-  // Petición inicial rápida
   try {
     const r = await fetchJsonRetry(`${base}/products?per_page=50`);
     if (!Array.isArray(r.data)) return null;
@@ -272,33 +283,6 @@ async function tryStoreApi(target) {
   } catch {
     return null;
   }
-}
-
-/* ------------------------ Extracción por JSON-LD Universal ------------ */
-function ldProducts(html, base) {
-  const out = [];
-  const walk = (n) => {
-    if (!n || typeof n !== 'object') return;
-    if (Array.isArray(n)) return n.forEach(walk);
-    const t = [].concat(n['@type'] || []).join(' ');
-    if (/Product/i.test(t) && n.name) {
-      const offer = [].concat(n.offers || [])[0] || {};
-      const price = parseNumber(offer.price ?? offer.lowPrice ?? (offer.priceSpecification || {}).price);
-      const img = [].concat(n.image || [])[0];
-      out.push({
-        title: decode(String(n.name)), 
-        image: img ? absUrl(typeof img === 'string' ? img : img.url || '', base) : '',
-        url: n.url ? absUrl(n.url, base) : (offer.url ? absUrl(offer.url, base) : ''),
-        price: price > 0 ? price : null,
-        brand: typeof n.brand === 'string' ? n.brand : (n.brand && n.brand.name) || '',
-      });
-    }
-    for (const k of ['itemListElement', 'item', '@graph', 'mainEntity']) if (n[k]) walk(n[k]);
-  };
-  for (const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    try { walk(JSON.parse(m[1].trim())); } catch { /* ignorar */ }
-  }
-  return out;
 }
 
 /* ------------------------------- Yupoo --------------------------------- */
@@ -348,40 +332,56 @@ export async function handleScrape(request) {
 
   const maxPages = Math.min(Math.max(parseInt(body.max_pages, 10) || DEFAULT_MAX_PAGES, 1), HARD_MAX_PAGES);
 
-  // 1. Soporte Yupoo
+  // 1. Si se ha pegado código HTML manualmente en el panel (Solución para Godspeed y webs bloqueadas)
+  if (typeof body.html === 'string' && body.html.length > 500) {
+    const products = parsePastedHtml(body.html, target);
+    if (!products.length) {
+      return json({ error: 'No se pudieron extraer productos del código pegado. Asegúrate de copiar todo el código fuente (Ctrl+U).' }, 422);
+    }
+    return json({ 
+      is_category: true, 
+      via: 'pasted-jsonld', 
+      source_url: target.href, 
+      count: products.length, 
+      pages: 1, 
+      has_more_pages: false, 
+      next_page: 0, 
+      products 
+    });
+  }
+
+  // 2. Soporte Yupoo
   if (isYupooHost(target.hostname)) {
     try { return json(await yupooScrape(target)); } catch (e) { return json({ error: e.message }, 502); }
   }
 
-  // 2. Soporte Shopify API (.json automático)
+  // 3. Soporte Shopify API (.json automático)
   try {
     const shopifyResult = await tryShopifyApi(target, maxPages);
     if (shopifyResult) return json(shopifyResult);
-  } catch { /* Continuar con WooCommerce o HTML */ }
+  } catch { /* Continuar */ }
 
-  // 3. Soporte WooCommerce Store API
+  // 4. Soporte WooCommerce Store API
   try {
     const wcResult = await tryStoreApi(target);
     if (wcResult) return json(wcResult);
-  } catch { /* Continuar con HTML genérico */ }
+  } catch { /* Continuar */ }
 
-  // 4. Extracción universal mediante HTML y JSON-LD (para cualquier otra web: Magento, PrestaShop, Wix, etc.)
+  // 5. Intento final mediante petición HTTP y JSON-LD automático
   try {
     const { html, finalUrl } = await fetchHtmlOnce(target.href);
-    
-    // Buscar mediante JSON-LD estructurado de la página (muy común en Shopify, Wix, etc.)
     const ldItems = ldProducts(html, finalUrl);
     if (ldItems.length > 0) {
       const products = ldItems.map(p => withPanelFields({
-        id: '', sku: '', title: p.title, price: p.price, regular_price: p.price,
+        id: '', sku: '', title: p.title, price: p.price, regular_price: p.regular_price,
         image: p.image, url: p.url, brand: p.brand || matchKnownBrand(p.title), in_stock: true
       }, finalUrl));
       return json({ is_category: true, via: 'json-ld', source_url: finalUrl, count: products.length, products });
     }
 
-    return json({ error: 'No se pudieron extraer productos automáticamente de esta plataforma. Usa el método de "Pegar código de la página".' }, 422);
+    return json({ error: 'No se pudieron extraer productos automáticamente. Usa el método de "Pegar código de la página".' }, 422);
   } catch (err) {
-    return json({ error: 'Error al conectar con la web: ' + err.message }, 502);
+    return json({ error: 'Error al conectar con la web: ' + err.message + '. Usa el método de "Pegar código de la página".' }, 502);
   }
 }
 
