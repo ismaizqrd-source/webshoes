@@ -42,6 +42,7 @@ const withPanelFields = (p, sourceUrl, hint = '') => ({
   football: looksFootball(`${p.title || ''} ${hint || ''}`),
   sizes: p.sizes && p.sizes.length ? p.sizes : [],   // el panel pone tallas por defecto según la categoría
   category_guess: p.category_guess || guessCategory(p.title, hint),
+  garment: p.garment || detectGarment(p.title),
   source_url: sourceUrl,
 });
 
@@ -52,6 +53,20 @@ const RE_CLOTHES = /\b(camiseta|camisa|polo|sudadera|hoodie|jersey|su[eé]ter|sw
 const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|hats?|headwear|trucker|fitted|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?|snapback|strapback|balaclava|bandana|bucket[\s-]?hat|wristband|keychain)\b/i;
 
 // Adivina la categoría del panel por el nombre (y, si no basta, por la ruta de la categoría)
+function detectGarment(title) {
+  const t = String(title || '').toLowerCase();
+  if (/\b(camiseta|t-?shirt|tee|polo|top|tank|manga[\s-]corta|jersey[\s-]de[\s-]punto)\b/.test(t)) return 'Camiseta';
+  if (/\b(sudadera|hoodie|sweatshirt|crewneck|pullover)\b/.test(t)) return 'Sudadera';
+  if (/\b(chaqueta|jacket|bomber|puffer|abrigo|parka|windbreaker|cortavientos|chaleco|gilet|zip[\s-]?up|varsity)\b/.test(t)) return 'Chaqueta';
+  if (/\b(pantal[oó]n|jeans?|vaquero|joggers?|sweatpants?|chinos?|cargo pants|trousers)\b/.test(t)) return 'Pantalón';
+  if (/\b(shorts?|bermuda)\b/.test(t)) return 'Short';
+  if (/\b(conjunto|tracksuit|ch[aá]ndal|sweatsuit)\b/.test(t)) return 'Conjunto';
+  if (/\b(gorra|gorr[ao]|hats?|cap|beanie|snapback|fitted|trucker|headwear)\b/.test(t)) return 'Gorra';
+  if (/\b(bolso|bolsa|mochila|backpack|bag|ri[nñ]onera|cartera)\b/.test(t)) return 'Bolso';
+  if (/\b(calcetines?|socks?)\b/.test(t)) return 'Calcetines';
+  return '';
+}
+
 function guessCategory(title, hint = '') {
   const pick = (t) => (RE_TECH.test(t) ? 'Electrónica' : RE_CLOTHES.test(t) ? 'Ropa' : RE_ACCESS.test(t) ? 'Accesorios' : '');
   const t = String(title || '');

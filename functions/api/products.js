@@ -82,6 +82,7 @@ function pickFields(input) {
   if ('sizes' in input) out.sizes = cleanSizes(input.sizes);
   if ('bestseller' in input) out.bestseller = !!input.bestseller;
   if ('source' in input) out.source = /^https?:\/\//.test(String(input.source || '')) ? str(input.source, 500) : '';
+  if ('garment' in input) out.garment = str(input.garment, 40);
   return out;
 }
 

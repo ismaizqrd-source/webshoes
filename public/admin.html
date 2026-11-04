@@ -263,6 +263,7 @@ tbody tr.sel{background:#f0f4ff}
         <input type="search" id="searchBox" placeholder="Buscar por título o marca..." oninput="renderProducts()">
         <select id="catFilter" onchange="renderProducts()"><option value="">Todas las categorías</option></select>
         <select id="brandFilter" onchange="renderProducts()"><option value="">Todas las marcas</option></select>
+        <select id="garmentFilter" onchange="renderProducts()"><option value="">Todas las prendas</option></select>
         <select id="photoFilter" onchange="renderProducts()">
           <option value="">Todas las fotos</option>
           <option value="unified">Fotos unificadas</option>
@@ -999,17 +1000,36 @@ function fillFilters() {
     el.value = vals.includes(cur) ? cur : '';
   };
   const uniq = (k) => [...new Set(products.map((p) => p[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const garmentOf = (p) => p.garment || detectGarment(p.title);
+  const garments = [...new Set(products.map(garmentOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   keep('catFilter', uniq('cat'), 'Todas las categorías');
   keep('brandFilter', uniq('brand'), 'Todas las marcas');
+  keep('garmentFilter', garments, 'Todas las prendas');
   $('catList').innerHTML = uniq('cat').map((v) => `<option value="${esc(v)}">`).join('');
+}
+
+function detectGarment(title) {
+  const t = String(title || '').toLowerCase();
+  if (/\b(camiseta|t-?shirt|tee|polo|top|tank|manga[\s-]corta)\b/.test(t)) return 'Camiseta';
+  if (/\b(sudadera|hoodie|sweatshirt|crewneck|pullover)\b/.test(t)) return 'Sudadera';
+  if (/\b(chaqueta|jacket|bomber|puffer|abrigo|parka|windbreaker|chaleco|gilet|zip[\s-]?up|varsity)\b/.test(t)) return 'Chaqueta';
+  if (/\b(pantal[oó]n|jeans?|vaquero|joggers?|sweatpants?|chinos?|cargo|trousers)\b/.test(t)) return 'Pantalón';
+  if (/\b(shorts?|bermuda)\b/.test(t)) return 'Short';
+  if (/\b(conjunto|tracksuit|ch[aá]ndal|sweatsuit)\b/.test(t)) return 'Conjunto';
+  if (/\b(gorra|gorr[ao]|hats?|cap|beanie|snapback|fitted|trucker|headwear)\b/.test(t)) return 'Gorra';
+  if (/\b(bolso|bolsa|mochila|backpack|bag|ri[nñ]onera|cartera)\b/.test(t)) return 'Bolso';
+  if (/\b(calcetines?|socks?)\b/.test(t)) return 'Calcetines';
+  return '';
 }
 
 function filtered() {
   const q = $('searchBox').value.trim().toLowerCase();
   const cat = $('catFilter').value, brand = $('brandFilter').value, ph = $('photoFilter').value;
+  const garm = $('garmentFilter').value;
   return products.filter((p) =>
     (!q || (p.title || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)) &&
     (!cat || p.cat === cat) && (!brand || p.brand === brand) &&
+    (!garm || (p.garment || detectGarment(p.title)) === garm) &&
     (!ph || (ph === 'unified') === isUnified(p)));
 }
 
@@ -1028,7 +1048,7 @@ function renderProducts() {
         <td><strong>${esc(p.title)}</strong>${p.bestseller ? ' <span class="tag">Más vendido</span>' : ''}
             <div style="margin-top:2px">${isUnified(p) ? '<span class="tag ok">Foto unificada</span>' : '<span class="tag warn">Foto sin unificar</span>'}</div></td>
         <td>${esc(p.brand) || '-'}</td>
-        <td>${esc(p.cat) || '-'}</td>
+        <td>${esc(p.cat) || '-'}${(() => { const g = p.garment || detectGarment(p.title); return g ? `<div style="font-size:10px;color:var(--gray2);margin-top:2px">${esc(g)}</div>` : ''; })()}</td>
         <td>${eur(p.price)}${p.compare_price ? `<span class="old">${eur(p.compare_price)}</span>` : ''}</td>
         <td>${(p.sizes || []).length ? esc((p.sizes || []).join(', ')) : '<span style="color:var(--gray2)">—</span>'}</td>
         <td class="actions">
@@ -1629,7 +1649,7 @@ function renderImport() {
         <button class="btn sm ghost" onclick="impFlip(${c.i})" ${c.status === 'working' ? 'disabled' : ''} title="Girar la foto">↔ Girar</button></div>
       <img class="pic" src="${esc(c.preview)}" alt="" loading="lazy">
       <div class="t">${esc(c.title)}</div>
-      <div class="m">${esc(c.cat)} · ${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
+      <div class="m">${esc(c.cat)}${c.garment ? ` · ${esc(c.garment)}` : ''} · ${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
       <div class="st ${st[0]}">${esc(st[1])}</div>
       ${c.similar ? `<div class="st warn">${esc(c.similar)}</div>` : ''}
     </div>`;
@@ -1766,7 +1786,7 @@ async function saveImport() {
       $('impProgress').textContent = `Guardando ${++k} de ${chosen.length}…`;
       let image = c.srcImage;
       if (c.blob && c.status !== 'working') image = await uploadBlob(c.blob);
-      out.push({ title: c.title, brand: c.brand, cat: c.cat, price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0, source: c.source || '', ...($('optBest').checked ? { bestseller: true } : {}) });
+      out.push({ title: c.title, brand: c.brand, cat: c.cat, garment: c.garment || '', price: c.price, compare_price: c.compare_price, sizes: c.sizes, image, cost: 0, source: c.source || '', ...($('optBest').checked ? { bestseller: true } : {}) });
     }
     const r = await api('/api/products', { method: 'POST', body: { products: out } });
     // Los que seguían sin foto lista (en cola o procesándose) se actualizan al terminar
