@@ -49,7 +49,7 @@ const withPanelFields = (p, sourceUrl, hint = '') => ({
 
 const RE_TECH = /\b(airpods?|iphone|ipad|macbook|airtag|apple watch|smartwatch|auriculares|cascos|altavoz|speaker|jbl|bose|samsung|galaxy|playstation|ps[345]|xbox|nintendo|consola|cargador|power ?bank|tablet|port[aá]til|laptop|c[aá]mara|gopro|dji|dyson|secador|teclado|monitor|televisor|airfryer|drone|tecnolog[ií]a|electr[oó]nica)\b/i;
 const RE_CLOTHES = /\b(camiseta|camisa|polo|sudadera|hoodie|jersey|su[eé]ter|sweater|cardigan|chaqueta|cazadora|jacket|puffer|abrigo|parka|chaleco|gilet|pantal[oó]n|pants|vaquero|jeans|shorts?|bermuda|ch[aá]ndal|tracksuit|sweatsuit|sweatpants?|joggers?|crewneck|apparel|clothing|streetwear|longsleeve|zip[\s-]?up|varsity|bomber|falda|vestido|ba[nñ]ador|fleece|t-?shirt|tee|ropa)\b/i;
-const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?|snapback|strapback|balaclava|bandana|bucket[\s-]?hat|wristband|keychain)\b/i;
+const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|hats?|headwear|trucker|fitted|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?|snapback|strapback|balaclava|bandana|bucket[\s-]?hat|wristband|keychain)\b/i;
 
 // Adivina la categoría del panel por el nombre (y, si no basta, por la ruta de la categoría)
 function guessCategory(title, hint = '') {
@@ -64,7 +64,7 @@ function shopifyCat(productType, tags) {
   const t = (String(productType || '') + ' ' + (Array.isArray(tags) ? tags.join(' ') : String(tags || ''))).toLowerCase();
   if (/\b(clothing|apparel|shirts?|t-?shirts?|tees?|hoodie|hoodies|sweater|sweatshirt|sweatsuit|sweatsuits|pants|shorts|jackets?|tracksuit|joggers?|crewneck|zip[\s-]?up|varsity|bomber)\b/.test(t)) return 'Ropa';
   if (/\b(footwear|shoes|sneakers|kicks|boots?|slippers?|sandals?)\b/.test(t)) return 'Calzado';
-  if (/\b(accessories|accessory|hats?|caps?|bags?|wallets?|belts?|jewelry|watches?|beanies?|snapback|fitted|sunglasses)\b/.test(t)) return 'Accesorios';
+  if (/\b(accessories|accessory|hats?|caps?|headwear|bags?|wallets?|belts?|jewelry|watches?|beanies?|snapback|fitted|trucker|sunglasses)\b/.test(t)) return 'Accesorios';
   if (/\b(electronics|gadgets?|audio|tech)\b/.test(t)) return 'Electrónica';
   return '';
 }
