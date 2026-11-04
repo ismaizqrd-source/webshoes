@@ -329,6 +329,7 @@ tbody tr.sel{background:#f0f4ff}
           <b id="impSummary"></b>
           <span id="impProgress" style="font-size:12px;color:var(--gray)"></span>
           <span style="flex:1"></span>
+          <button class="btn ghost sm" id="btnHideDups" onclick="toggleHideDups()" title="Ocultar productos ya importados del listado">Ocultar ya importados</button>
           <button class="btn ghost sm" id="btnImpRetry" onclick="retryFailed()">Reintentar fallidas</button>
           <button class="btn ghost sm" id="btnImpCancel" onclick="cancelImport()">Cancelar proceso</button>
           <button class="btn sm" id="btnImpSave" onclick="saveImport()">Guardar en la tienda</button>
@@ -1429,34 +1430,49 @@ const defaultSizes = (cat) => (cat === 'Ropa' ? ['S', 'M', 'L', 'XL', 'XXL'] : c
 /* ── detección de duplicados ──
    Se comparan las palabras importantes del nombre (sin tildes, comillas ni palabras de relleno),
    contra los productos de la tienda y contra los ya vistos en esta misma importación. */
-const DUP_STOP = new Set(['replica', 'replicas', 'zapatilla', 'zapatillas', 'zapas', 'sneaker', 'sneakers', 'shoes', 'shoe', 'para', 'mujer',
-  'hombre', 'unisex', 'de', 'del', 'la', 'el', 'los', 'las', 'con', 'y', 'en', 'the', 'and', 'for', 'women', 'woman', 'men', 'man', 'wmns',
-  'ropa', 'calzado', 'nuevo', 'nueva', 'original', 'oferta', 'edicion', 'limitada']);
+const DUP_STOP = new Set([
+  // español
+  'replica', 'replicas', 'zapatilla', 'zapatillas', 'zapas', 'sneaker', 'sneakers', 'shoes', 'shoe', 'para', 'mujer',
+  'hombre', 'unisex', 'de', 'del', 'la', 'el', 'los', 'las', 'con', 'y', 'en', 'ropa', 'calzado',
+  'nuevo', 'nueva', 'nuevos', 'nuevas', 'original', 'oferta', 'edicion', 'limitada',
+  // inglés
+  'the', 'and', 'for', 'women', 'woman', 'men', 'man', 'wmns', 'mens', 'womens',
+  'a', 'an', 'of', 'in', 'on', 'at', 'by', 'with', 'from', 'is', 'it', 'or', 'to', 'as',
+  'new', 'style', 'edition', 'limited', 'official', 'authentic',
+]);
 function titleTokens(t) {
   const words = String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ');
   return new Set(words.filter((w) => w.length > 1 && !DUP_STOP.has(w)));
 }
 // Identifica una foto por su nombre de archivo (sin tamaño ni extensión): la misma foto = el mismo producto
 function imageKey(u) {
-  let url; try { url = new URL(String(u || '')); } catch { return ''; }   // solo fotos con dirección completa (web de origen)
+  let url; try { url = new URL(String(u || '')); } catch { return ''; }
   const m = url.pathname.match(/([^/]+)\.(?:jpe?g|png|webp|gif)$/i);
   if (!m) return '';
-  // con el dominio delante: "image.jpg" de dos webs distintas no cuenta como la misma foto
   return url.hostname + '/' + m[1].toLowerCase().replace(/-\d{2,4}x\d{2,4}$/, '');
+}
+// Canonicaliza la URL de origen: quita www., protocolo, query y trailing slash para comparar de forma robusta
+function canonSource(u) {
+  try {
+    const url = new URL(String(u || ''));
+    return url.hostname.replace(/^www\./, '').toLowerCase() + url.pathname.replace(/\/+$/, '').toLowerCase();
+  } catch { return String(u || '').toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, ''); }
 }
 function makeDupIndex() {
   const entries = [], byToken = new Map(), bySource = new Map(), byImage = new Map();
   const add = (title, source, ref, image) => {
     const tokens = titleTokens(title);
-    const idx = entries.push({ title, tokens, ref, source: source || '' }) - 1;
+    const canon = source ? canonSource(source) : '';
+    const idx = entries.push({ title, tokens, ref, source: source || '', canon }) - 1;
     tokens.forEach((w) => { if (!byToken.has(w)) byToken.set(w, []); byToken.get(w).push(idx); });
-    if (source) bySource.set(source, { title, ref });
+    if (canon) bySource.set(canon, { title, ref });
     const ik = imageKey(image); if (ik) byImage.set(ik, { title, ref });
   };
-  // Mismo link o misma foto = el mismo producto. Mismo nombre pero distinto link/foto = otra variante
-  // (p. ej. el mismo modelo en otro color): se importa, solo se avisa.
+  // Mismo link (canonicalizado) o misma foto de la misma web = el mismo producto.
+  // Mismo nombre pero distinto link/foto = posible variante de color: se importa pero se avisa.
   const find = (title, source, image) => {
-    if (source && bySource.has(source)) return { kind: 'same', ...bySource.get(source) };
+    const canon = source ? canonSource(source) : '';
+    if (canon && bySource.has(canon)) return { kind: 'same', ...bySource.get(canon) };
     const ik = imageKey(image);
     if (ik && byImage.has(ik)) return { kind: 'exact', ...byImage.get(ik) };
     const A = titleTokens(title);
@@ -1468,8 +1484,8 @@ function makeDupIndex() {
       const e = entries[i], B = e.tokens;
       const sim = inter / (A.size + B.size - inter);
       if (sim === 1) {
-        // nombre idéntico: duplicado solo si el otro no tiene link (catálogo antiguo) o no hay link con el que distinguirlo
-        if (!source || !e.source) return { kind: 'exact', title: e.title, ref: e.ref };
+        // nombre idéntico: si alguno no tiene link canonicalizado, o los links coinciden → duplicado; si tienen links distintos → posible variante
+        if (!canon || !e.canon || canon === e.canon) return { kind: 'exact', title: e.title, ref: e.ref };
         if (!best || best.sim < 1) best = { kind: 'variant', title: e.title, sim: 1, ref: e.ref };
       } else if (inter >= 2 && sim >= 0.7 && (!best || sim > best.sim)) best = { kind: 'similar', title: e.title, sim, ref: e.ref };
     }
@@ -1548,6 +1564,7 @@ async function startImport() {
         on: !exact && !s.football,
       };
     });
+    hideDups = false; $('btnHideDups').textContent = 'Ocultar ya importados';
     renderImport();
     $('importArea').classList.remove('hidden');
     if ($('optUnify').checked || $('optColor').checked || imp.some((c) => c.albumUrl)) processImportQueue();
@@ -1555,10 +1572,22 @@ async function startImport() {
   btn.disabled = false; btn.textContent = 'Extraer datos desde Cloudflare';
 }
 
+let hideDups = false;
+function toggleHideDups() {
+  hideDups = !hideDups;
+  $('btnHideDups').textContent = hideDups ? 'Mostrar todos' : 'Ocultar ya importados';
+  renderImport();
+}
 function renderImport() {
+  const dups = imp.filter((c) => c.status === 'dup').length;
+  const similar = imp.filter((c) => c.similar && c.status !== 'dup').length;
   const on = imp.filter((c) => c.on).length;
-  $('impSummary').textContent = `${imp.length} productos encontrados · ${on} seleccionados`;
-  $('impGrid').innerHTML = imp.map((c) => {
+  const parts = [`${imp.length} productos encontrados`, `${on} seleccionados`];
+  if (dups) parts.push(`${dups} ya importados`);
+  if (similar) parts.push(`${similar} parecidos`);
+  $('impSummary').textContent = parts.join(' · ');
+  const visible = hideDups ? imp.filter((c) => c.status !== 'dup') : imp;
+  $('impGrid').innerHTML = visible.map((c) => {
     const st = { pending: ['', 'En cola'], working: ['', 'Procesando…'], done: ['ok', 'Foto unificada' + (c.flipped ? ' · girada' : '')],
                  warn: ['warn', c.note || 'Revisar'], err: ['err', c.note || 'Error'], dup: ['warn', c.note], raw: ['', 'Sin unificar'] }[c.status] || ['', ''];
     return `<div class="icard ${c.on ? '' : 'off'}">
@@ -1567,7 +1596,7 @@ function renderImport() {
       <img class="pic" src="${esc(c.preview)}" alt="" loading="lazy">
       <div class="t">${esc(c.title)}</div>
       <div class="m">${esc(c.cat)} · ${esc(c.brand) || 'Sin marca'} · ${eur(c.price)}${c.compare_price ? `<span class="old">${eur(c.compare_price)}</span>` : ''}</div>
-      <div class="st ${st[0]}">${esc(st[1])}${c.status === 'warn' && c.note ? '' : ''}</div>
+      <div class="st ${st[0]}">${esc(st[1])}</div>
       ${c.similar ? `<div class="st warn">${esc(c.similar)}</div>` : ''}
     </div>`;
   }).join('');
