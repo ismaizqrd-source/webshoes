@@ -48,8 +48,8 @@ const withPanelFields = (p, sourceUrl, hint = '') => ({
 /* ------------------- categoría del panel (Calzado, Ropa…) ------------- */
 
 const RE_TECH = /\b(airpods?|iphone|ipad|macbook|airtag|apple watch|smartwatch|auriculares|cascos|altavoz|speaker|jbl|bose|samsung|galaxy|playstation|ps[345]|xbox|nintendo|consola|cargador|power ?bank|tablet|port[aá]til|laptop|c[aá]mara|gopro|dji|dyson|secador|teclado|monitor|televisor|airfryer|drone|tecnolog[ií]a|electr[oó]nica)\b/i;
-const RE_CLOTHES = /\b(camiseta|camisa|polo|sudadera|hoodie|jersey|su[eé]ter|sweater|cardigan|chaqueta|cazadora|jacket|puffer|abrigo|parka|chaleco|gilet|pantal[oó]n|pants|vaquero|jeans|shorts?|bermuda|ch[aá]ndal|tracksuit|falda|vestido|ba[nñ]ador|fleece|t-?shirt|tee|ropa)\b/i;
-const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?)\b/i;
+const RE_CLOTHES = /\b(camiseta|camisa|polo|sudadera|hoodie|jersey|su[eé]ter|sweater|cardigan|chaqueta|cazadora|jacket|puffer|abrigo|parka|chaleco|gilet|pantal[oó]n|pants|vaquero|jeans|shorts?|bermuda|ch[aá]ndal|tracksuit|sweatsuit|sweatpants?|joggers?|crewneck|apparel|clothing|streetwear|longsleeve|zip[\s-]?up|varsity|bomber|falda|vestido|ba[nñ]ador|fleece|t-?shirt|tee|ropa)\b/i;
+const RE_ACCESS = /\b(bolso|bolsa|cartera|monedero|cintur[oó]n|gafas|sunglasses|gorra|gorro|cap|beanie|reloj|watch|mochila|backpack|bufanda|calcetines|socks|llavero|ri[nñ]onera|cadena|collar|pulsera|anillo|perfume|colonia|neceser|maleta|paraguas|guantes|accesorios?|snapback|strapback|balaclava|bandana|bucket[\s-]?hat|wristband|keychain)\b/i;
 
 // Adivina la categoría del panel por el nombre (y, si no basta, por la ruta de la categoría)
 function guessCategory(title, hint = '') {
@@ -58,6 +58,28 @@ function guessCategory(title, hint = '') {
   return pick(t) || pick(decodeURIComponentSafe(hint).replace(/[-_/]+/g, ' ')) || DEFAULT_CATEGORY;
 }
 const decodeURIComponentSafe = (x) => { try { return decodeURIComponent(String(x || '')); } catch { return String(x || ''); } };
+
+// Mapea product_type y tags de Shopify directamente a categoría del panel (prioridad sobre la regex genérica)
+function shopifyCat(productType, tags) {
+  const t = (String(productType || '') + ' ' + (Array.isArray(tags) ? tags.join(' ') : String(tags || ''))).toLowerCase();
+  if (/\b(clothing|apparel|shirts?|t-?shirts?|tees?|hoodie|hoodies|sweater|sweatshirt|sweatsuit|sweatsuits|pants|shorts|jackets?|tracksuit|joggers?|crewneck|zip[\s-]?up|varsity|bomber)\b/.test(t)) return 'Ropa';
+  if (/\b(footwear|shoes|sneakers|kicks|boots?|slippers?|sandals?)\b/.test(t)) return 'Calzado';
+  if (/\b(accessories|accessory|hats?|caps?|bags?|wallets?|belts?|jewelry|watches?|beanies?|snapback|fitted|sunglasses)\b/.test(t)) return 'Accesorios';
+  if (/\b(electronics|gadgets?|audio|tech)\b/.test(t)) return 'Electrónica';
+  return '';
+}
+
+// Lee la moneda activa de una tienda Shopify vía /cart.js (rápido, siempre disponible)
+async function getShopifyCurrency(origin) {
+  try {
+    const r = await fetch(`${origin}/cart.js`, {
+      headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0 Safari/537.36' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (r.ok) { const d = await r.json(); return String(d.currency || '').toUpperCase() || ''; }
+  } catch { /* ignorar */ }
+  return '';
+}
 
 /* ----------------------------- utilidades ----------------------------- */
 
@@ -665,10 +687,13 @@ async function fetchShopifyJson(url) {
   });
   if (!res.ok) { const e = new Error(`HTTP ${res.status}`); e.status = res.status; throw e; }
   if (!/json/i.test(res.headers.get('content-type') || '')) throw new Error('no es JSON');
-  return res.json();
+  const data = await res.json();
+  const link = res.headers.get('link') || '';
+  const nm = link.match(/<([^>]+)>;\s*rel=["']next["']/);
+  return { data, nextUrl: nm ? nm[1] : '' };
 }
 
-function mapShopifyProduct(it, origin, prefix, hint) {
+function mapShopifyProduct(it, origin, prefix, hint, currency = 'EUR') {
   const variants = asArray(it.variants);
   const prices = variants.map((v) => parseNumber(v.price)).filter((n) => n > 0);
   const price = prices.length ? Math.min(...prices) : null;
@@ -683,13 +708,15 @@ function mapShopifyProduct(it, origin, prefix, hint) {
   const imgs = asArray(it.images).map((i) => (i && i.src ? fullSize(String(i.src)) : '')).filter(Boolean);
   const tags = Array.isArray(it.tags) ? it.tags.join(' ') : String(it.tags || '');
   const title = decode(String(it.title || ''));
+  const catFromType = shopifyCat(it.product_type, it.tags);
   const product = {
     id: String(it.id || ''), sku: (variants[0] && variants[0].sku) || '', title, price, regular_price: regular,
-    sale_price: regular > price ? price : null, price_text: price ? String(price) : '', currency: 'EUR',
+    sale_price: regular > price ? price : null, price_text: price ? String(price) : '', currency,
     image: imgs[0] || '', url: `${origin}${prefix}/products/${it.handle}`,
     brand: matchKnownBrand(title) || decode(String(it.vendor || '')),
     in_stock: variants.length ? variants.some((v) => v.available !== false) : true,
     sizes: [...new Set(sizes)].slice(0, 40), description: stripTags(String(it.body_html || '')).slice(0, 600),
+    ...(catFromType ? { category_guess: catFromType } : {}),
   };
   if (imgs.length > 1) product.images = imgs;
   return withPanelFields(product, product.url, `${it.product_type || ''} ${tags} ${hint}`);
@@ -699,31 +726,34 @@ async function tryShopify(target, startPage, maxPages) {
   const ep = shopifyEndpoints(target);
   if (!ep) return null;
   const hint = decodeURIComponentSafe(target.pathname);
+  const currency = (await getShopifyCurrency(target.origin)) || 'EUR';
 
   if (ep.single) {
-    const data = await fetchShopifyJson(ep.single);
+    const { data } = await fetchShopifyJson(ep.single);
     if (!data || !data.product) return null;
-    const product = mapShopifyProduct(data.product, target.origin, ep.prefix, hint);
+    const product = mapShopifyProduct(data.product, target.origin, ep.prefix, hint, currency);
     return { is_category: false, via: 'shopify', ...product, products: [product] };
   }
 
   const first = Math.max(startPage || 1, 1);
   const products = [], seen = new Set();
   let page = first, pagesDone = 0, hasMore = false, rateLimited = false;
+  let nextFetch = `${ep.list}?limit=250&page=${first}`;
   while (pagesDone < maxPages) {
-    let data;
-    try { data = await fetchShopifyJson(`${ep.list}?limit=250&page=${page}`); }
+    let res;
+    try { res = await fetchShopifyJson(nextFetch); }
     catch (e) {
       if (pagesDone === 0) { if (e.status === 429) throw e; return null; }   // no es Shopify (o error al empezar)
       if (e.status === 429 || (e.status >= 500)) { rateLimited = true; hasMore = true; }
       break;
     }
-    const items = data && Array.isArray(data.products) ? data.products : null;
+    const items = res.data && Array.isArray(res.data.products) ? res.data.products : null;
     if (!items) { if (pagesDone === 0) return null; break; }
-    for (const it of items) { if (!it || seen.has(it.id)) continue; seen.add(it.id); products.push(mapShopifyProduct(it, target.origin, ep.prefix, hint)); }
+    for (const it of items) { if (!it || seen.has(it.id)) continue; seen.add(it.id); products.push(mapShopifyProduct(it, target.origin, ep.prefix, hint, currency)); }
     pagesDone++; page++;
     if (items.length < 250) { hasMore = false; break; }
     hasMore = true;
+    nextFetch = res.nextUrl || `${ep.list}?limit=250&page=${page}`;
     if (pagesDone < maxPages) await sleep(300);
   }
   if (!products.length && pagesDone === 0) return null;
