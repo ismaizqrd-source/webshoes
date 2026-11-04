@@ -70,10 +70,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(255,255,255,
 .stat .n{font-family:'Bebas Neue',sans-serif;font-size:30px;display:block;color:#111}
 .stat .l{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gray)}
 
-.brands{border-bottom:1px solid var(--border);padding:1.2rem 2rem;display:flex;gap:0;overflow-x:auto}
-.brand-p{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--gray2);padding:.4rem 1.2rem;cursor:pointer;transition:color .2s;white-space:nowrap;border-right:1px solid var(--border);flex-shrink:0}
+.brands{border-bottom:1px solid var(--border);padding:.85rem 2rem;display:flex;gap:0;overflow-x:auto;position:sticky;top:60px;z-index:150;background:rgba(255,255,255,.97);backdrop-filter:blur(8px)}
+.brand-p{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:var(--gray2);padding:.35rem 1.1rem;cursor:pointer;transition:color .18s,background .18s;white-space:nowrap;border-right:1px solid var(--border);flex-shrink:0}
 .brand-p:last-child{border-right:none}
-.brand-p:hover{color:var(--white)}
+.brand-p:hover,.brand-p.active{color:var(--white);background:var(--bg2)}
 
 .shop-sec{padding:3.5rem 2rem}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.75rem}
@@ -85,11 +85,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(255,255,255,
 .fb:hover,.fb.on{background:#111;color:#fff;border-color:#111}
 
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--border)}
-.pcard{background:var(--bg);cursor:pointer;transition:background .15s}
+.pcard{background:var(--bg);cursor:pointer;transition:background .2s,transform .2s;position:relative}
 .pcard:hover{background:var(--bg2)}
 .pimg{aspect-ratio:1/1;overflow:hidden;background:#fff;position:relative}
-.pimg img{width:100%;height:100%;object-fit:contain;transition:transform .5s}
-.pcard:hover .pimg img{transform:scale(1.06)}
+.pimg img{width:100%;height:100%;object-fit:contain;transition:transform .45s cubic-bezier(.25,.46,.45,.94)}
+.pcard:hover .pimg img{transform:scale(1.08)}
 .pbadge{position:absolute;top:9px;left:9px;font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:700;padding:3px 8px;background:#111;color:#fff}
 .pbadge.sale{background:var(--red);color:#fff}
 .pbadge.hot{background:#111;color:#fff}
@@ -475,6 +475,29 @@ footer a:hover{color:var(--white)}
 #shop-anchor{display:none}
 .catalog-mode #shop-anchor{display:block;padding-top:2rem}
 .catalog-mode .hero,.catalog-mode .brands,.catalog-mode #homeSections,.catalog-mode .promo{display:none}
+
+/* tile activo (inline expand) */
+.cat-tile{transition:box-shadow .2s}
+.cat-tile.active{box-shadow:inset 0 0 0 3px #111}
+.cat-tile .lbl .tile-arr{font-size:12px;color:#888;transition:transform .25s;display:inline-block;margin-left:4px}
+.cat-tile.active .lbl .tile-arr{transform:rotate(180deg)}
+/* row expandida inline */
+.home-sec.row-expanded{background:var(--bg2);margin:0 -2rem;padding:0 2rem 1.5rem}
+@media(max-width:768px){.home-sec.row-expanded{margin:0 -1rem;padding:0 1rem 1.5rem}}
+.home-sec.row-expanded .pgrid.cat-row{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.home-sec.row-expanded .cat-row-more{display:none!important}
+.row-expanded-head{display:none;align-items:center;justify-content:space-between;padding:.9rem 0 .6rem}
+.home-sec.row-expanded .row-expanded-head{display:flex}
+.btn-row-back{background:none;border:1px solid var(--border2);color:var(--gray);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:5px 12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .18s}
+.btn-row-back:hover{color:#111;border-color:#111}
+/* cat tile mejoras visuales */
+.cat-tile{aspect-ratio:3/2}
+.cat-tile img{padding:10% 10% 20%}
+.cat-tile .lbl{padding:1rem 1.1rem;background:linear-gradient(to top,rgba(255,255,255,1) 50%,rgba(255,255,255,0))}
+.cat-tile .lbl b{font-size:clamp(18px,2.2vw,26px)}
+.cat-tile .lbl .cnt{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gray2)}
+/* nav active */
+.nav-cats>li>a.nav-active{color:var(--white);border-bottom:2px solid #111;margin-bottom:-2px}
 .cat-crumb{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);cursor:pointer;display:inline-block;margin-bottom:1rem}
 .cat-crumb:hover{color:#111}
 .cat-tools{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:1.2rem}
@@ -940,7 +963,7 @@ function mergeSite(x){
 function siteLink(l){
   l=String(l||'');
   if(!l||l==='catalog') return filterAll();
-  if(l.startsWith('cat:')) return showCat(l.slice(4));
+  if(l.startsWith('cat:')) return showCatInline(l.slice(4));
   if(l.startsWith('brand:')) return showBrand(l.slice(6));
   if(/^https?:\/\//.test(l)) return window.open(l,'_blank','noopener');
   filterAll();
@@ -961,7 +984,7 @@ function applySite(){
   if(h.image){ img.src=h.image; hero.classList.add('has-img'); } else { img.removeAttribute('src'); hero.classList.remove('has-img'); }
   const bb=document.getElementById('brandsBar');
   const useCats=h.strip!=='brands';
-  const items=useCats?visibleCats().map(c=>[catLabel(c),`showCat('${jsq(c)}')`]):h.brands.map(b=>[b,`showBrand('${jsq(b)}')`]);
+  const items=useCats?visibleCats().map(c=>[catLabel(c),`showCatInline('${jsq(c)}')`]):h.brands.map(b=>[b,`showBrand('${jsq(b)}')`]);
   bb.innerHTML=items.map(([t,fn])=>`<span class="brand-p" onclick="${fn}">${esc(t).toUpperCase()}</span>`).join('');
   bb.style.display=h.show&&items.length?'':'none';
 }
@@ -976,8 +999,8 @@ function renderCatTiles(){
   box.innerHTML=cats.map(c=>{
     const list=P.filter(p=>(p.cat||'Calzado')===c);
     const pick=list.find(p=>p.bestseller&&featurable(p))||list.find(featurable)||list[0];
-    return `<div class="cat-tile" onclick="showCat('${jsq(c)}')">${pick?`<img src="${esc(pick.image)}" alt="" loading="lazy">`:''}
-      <div class="lbl"><b>${esc(catLabel(c))}</b><span>${list.length} productos</span></div></div>`;
+    return `<div class="cat-tile" id="tile-${c}" data-cat="${c}" onclick="showCatInline('${jsq(c)}')">${pick?`<img src="${esc(pick.image)}" alt="" loading="lazy">`:''}
+      <div class="lbl"><b>${esc(catLabel(c))}<span class="tile-arr">↓</span></b><span class="cnt">${list.length} productos</span></div></div>`;
   }).join('');
 }
 
@@ -991,12 +1014,16 @@ function renderCatRows(){
     const pool=list.filter(p=>!isFootball(p));
     const shown=[...pool.filter(p=>p.bestseller),...pool.filter(p=>!p.bestseller).reverse()].slice(0,per);
     const brands=topBrands(list,6).map(b=>`<button class="fb" onclick="showBrand('${jsq(b)}')">${esc(b)}</button>`).join('');
-    return `<div class="home-sec">
+    return `<div class="home-sec" id="catrow-${c}">
       <div class="sec-head"><div><span class="sec-ttl">${esc(catLabel(c))}</span><span class="sec-cnt">${list.length} productos</span></div>
-        <span class="sec-link" onclick="showCat('${jsq(c)}')">Ver todo →</span></div>
+        <span class="sec-link" onclick="showCatInline('${jsq(c)}')">Ver todo →</span></div>
       ${brands?`<div class="row-brands">${brands}</div>`:''}
-      <div class="pgrid cat-row">${shown.map((p,i)=>cardHtml(p,i)).join('')}</div>
-      ${list.length>per?`<div class="cat-row-more"><span class="btn-ghost" style="cursor:pointer" onclick="showCat('${jsq(c)}')">Ver los ${list.length} de ${esc(catLabel(c))}</span></div>`:''}
+      <div class="row-expanded-head">
+        <span style="font-size:12px;color:var(--gray)">${list.length} productos</span>
+        <button class="btn-row-back" onclick="collapseCatRow('${jsq(c)}')">↑ Ver menos</button>
+      </div>
+      <div class="pgrid cat-row cat-row-products">${shown.map((p,i)=>cardHtml(p,i)).join('')}</div>
+      ${list.length>per?`<div class="cat-row-more"><span class="btn-ghost" style="cursor:pointer" onclick="showCatInline('${jsq(c)}')">Ver los ${list.length} de ${esc(catLabel(c))}</span></div>`:''}
     </div>`;
   }).join('');
 }
@@ -1009,6 +1036,7 @@ function goHome() {
   showPage('home');
   document.getElementById('page-home').classList.remove('catalog-mode');
   document.getElementById('nsearch').value='';
+  document.querySelectorAll('.cat-tile,.brand-p').forEach(t=>t.classList.remove('active'));
   renderHome();
 }
 
@@ -1313,6 +1341,32 @@ function openCatalog(title,list,activeFilter){
 function filterAll(){ document.getElementById('nsearch').value=''; openCatalog('Todos los productos',P,'Todos'); }
 function showCat(cat){ document.getElementById('nsearch').value=''; openCatalog(catLabel(cat),P.filter(p=>(p.cat||'Calzado')===cat),catLabel(cat)); }
 function showBrand(brand){ document.getElementById('nsearch').value=''; openCatalog(brand,P.filter(p=>p.brand===brand),''); }
+
+function showCatInline(cat) {
+  // Marcar tile activo con flecha girada
+  document.querySelectorAll('.cat-tile').forEach(t=>t.classList.toggle('active',t.dataset.cat===cat));
+  // Marcar brands-bar activo
+  document.querySelectorAll('.brand-p').forEach(el=>el.classList.toggle('active',el.textContent.trim().toUpperCase()===catLabel(cat).toUpperCase()));
+  const row=document.getElementById('catrow-'+cat);
+  if(!row){showCat(cat);return;}
+  if(!row.classList.contains('row-expanded')){
+    const pool=P.filter(p=>(p.cat||'Calzado')===cat&&!isFootball(p));
+    const full=[...pool.filter(p=>p.bestseller),...pool.filter(p=>!p.bestseller).reverse()];
+    row.querySelector('.cat-row-products').innerHTML=full.map((p,i)=>cardHtml(p,i)).join('');
+    row.classList.add('row-expanded');
+  }
+  setTimeout(()=>row.scrollIntoView({behavior:'smooth',block:'start'}),40);
+}
+
+function collapseCatRow(cat) {
+  document.querySelectorAll('.cat-tile,.brand-p').forEach(t=>t.classList.remove('active'));
+  const row=document.getElementById('catrow-'+cat);
+  if(!row)return;
+  row.classList.remove('row-expanded');
+  renderCatRows();
+  const tilesSec=document.getElementById('tilesSec');
+  if(tilesSec) setTimeout(()=>tilesSec.scrollIntoView({behavior:'smooth',block:'start'}),40);
+}
 
 function onNavSearch(q){
   if(!q){ return; }
