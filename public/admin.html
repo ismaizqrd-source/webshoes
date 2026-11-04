@@ -153,15 +153,36 @@ tbody tr.sel{background:#f0f4ff}
 .logbox{max-height:160px;overflow:auto;font-size:11px;color:var(--gray);background:var(--bg2);padding:.5rem .7rem;margin-top:.7rem;white-space:pre-wrap}
 
 /* ── IMPORTADOR ── */
-.import-box{max-width:720px}
-.opts{display:flex;flex-direction:column;gap:.5rem;margin:1rem 0 1.2rem;font-size:13px}
-.opts label{display:flex;align-items:flex-start;gap:.5rem;cursor:pointer}
-.opts small{color:var(--gray2);display:block;font-size:11px}
-.import-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:1.2rem 0}
-.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1rem}
-.icard{background:var(--bg);border:1px solid var(--border);padding:.7rem;display:flex;flex-direction:column;gap:.45rem;position:relative}
-.icard.off{opacity:.5}
-.icard .pic{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;border:1px solid var(--border)}
+.import-box{max-width:680px;display:flex;flex-direction:column;gap:.6rem}
+.imp-row{display:flex;gap:.5rem;align-items:stretch}
+.imp-row input{flex:1}
+.imp-row select{width:auto;min-width:112px}
+.imp-opts{display:flex;flex-wrap:wrap;gap:.35rem;padding:.2rem 0}
+.opt-pill{display:flex;align-items:center;gap:.3rem;cursor:pointer;font-size:12px;padding:.3rem .7rem;
+  border:1px solid var(--border);border-radius:20px;user-select:none;
+  transition:background .12s,border-color .12s,color .12s;line-height:1}
+.opt-pill:hover{background:var(--bg2)}
+.opt-pill input[type=checkbox]{display:none}
+.opt-pill:has(input:checked){background:var(--ink);color:#fff;border-color:var(--ink)}
+.imp-yupoo{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.6rem .75rem;
+  background:var(--bg2);border-radius:8px;border:1px solid var(--border)}
+.imp-yupoo.hidden{display:none}
+.imp-yupoo input,.imp-yupoo select{flex:1;min-width:140px}
+.imp-label{font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.imp-advanced summary{font-size:12px;color:var(--gray2);cursor:pointer;padding:.15rem 0;list-style:none;display:flex;align-items:center;gap:.3rem}
+.imp-advanced summary::before{content:'▸';font-size:10px;transition:transform .15s}
+.imp-advanced[open] summary::before{transform:rotate(90deg)}
+.imp-advanced summary:hover{color:var(--ink)}
+.imp-btn{display:inline-flex;align-items:center;gap:.45rem;margin-top:.3rem}
+.import-actions{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.6rem;margin:1.2rem 0 .4rem}
+.imp-stats{display:flex;flex-direction:column;gap:.15rem}
+.imp-stats b{font-size:14px}
+.imp-stats span{font-size:12px;color:var(--gray)}
+.imp-btns{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.85rem}
+.icard{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.7rem;display:flex;flex-direction:column;gap:.4rem;position:relative}
+.icard.off{opacity:.45}
+.icard .pic{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:4px}
 .icard .t{font-size:12px;font-weight:600;line-height:1.3;min-height:2.6em}
 .icard .m{font-size:11px;color:var(--gray)}
 .icard .st{font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:700}
@@ -274,65 +295,72 @@ tbody tr.sel{background:#f0f4ff}
     <!-- ───── IMPORTAR ───── -->
     <div class="view" id="view-import">
       <div class="view-head">
-        <div><h1>Importador en la Nube</h1><p>Importa productos desde Shopify, WooCommerce, Yupoo y más — pega la URL de la tienda o de cualquier categoría</p></div>
+        <div><h1>Importar productos</h1><p>Shopify, WooCommerce, Yupoo y más — pega la URL de la tienda o de cualquier categoría</p></div>
       </div>
       <div class="import-box">
-        <div class="field">
-          <label>URL del producto o categoría</label>
-          <input id="importUrl" placeholder="https://avviishop.com/producto/... o /categoria-producto/...">
-        </div>
-        <div class="field">
-          <label>Páginas de la categoría a cargar <small style="font-weight:400;color:var(--gray)">(empieza en la página del link; si pones /page/70/ empieza en la 70)</small></label>
-          <select id="impPages">
-            <option value="1">Solo esa página</option>
+        <!-- URL + páginas en una misma fila -->
+        <div class="imp-row">
+          <input id="importUrl" placeholder="https://tienda.com/collections/todo" oninput="impUrlChange()">
+          <select id="impPages" title="Páginas a cargar">
+            <option value="1">1 página</option>
             <option value="5" selected>5 páginas</option>
             <option value="20">20 páginas</option>
             <option value="50">50 páginas</option>
-            <option value="200">Todas hasta el final</option>
+            <option value="200">Todo</option>
           </select>
         </div>
-        <div class="field">
-          <label>Pegar código de la página <small style="font-weight:400;color:var(--gray)">(para webs que bloquean al servidor, como JD Sports: ábrela en tu navegador, pulsa Ctrl+U, Ctrl+A, Ctrl+C y pégalo aquí; el link de arriba es el de esa misma página)</small></label>
-          <textarea id="impHtml" rows="2" placeholder="Opcional" style="width:100%;font-size:11px"></textarea>
+
+        <!-- Marca (siempre visible, es corta) -->
+        <input id="impBrand" placeholder="Marca (opcional, ej.: Onitsuka Tiger)">
+
+        <!-- Opciones como pills -->
+        <div class="imp-opts">
+          <label class="opt-pill" title="Fondo blanco, 900×900, producto centrado"><input type="checkbox" id="optUnify" checked>Unificar fotos</label>
+          <label class="opt-pill" title="Detecta color principal y lo añade al nombre"><input type="checkbox" id="optColor" checked>Nombre con color</label>
+          <label class="opt-pill" title="Recorte rápido por color; IA solo en fotos difíciles"><input type="checkbox" id="optFast" checked>Modo rápido</label>
+          <label class="opt-pill" title="IA de recorte en tu navegador (modelo 4,5 MB)"><input type="checkbox" id="optAI" checked>Recorte con IA</label>
+          <label class="opt-pill" title="Los guardados saldrán arriba en Más vendidos"><input type="checkbox" id="optBest">Más vendidos</label>
         </div>
-        <div class="field">
-          <label>Marca para todos los productos <small style="font-weight:400;color:var(--gray)">(opcional: si pegas el link de una sola marca, ponla aquí y no hace falta que salga en el nombre)</small></label>
-          <input id="impBrand" placeholder="Ej.: Onitsuka Tiger">
+
+        <!-- Yupoo: solo visible si la URL es de yupoo.com -->
+        <div class="imp-yupoo hidden" id="yupooOpts">
+          <span class="imp-label">Yupoo</span>
+          <input id="impPrice" type="number" min="0" step="0.01" placeholder="Precio (€)">
+          <select id="impCat">
+            <option value="">Categoría: detectar</option>
+            <option>Calzado</option><option>Ropa</option><option>Accesorios</option><option>Electrónica</option>
+          </select>
         </div>
-        <div class="field" id="yupooOpts">
-          <label>Para álbumes de Yupoo <small style="font-weight:400;color:var(--gray)">(el álbum no trae precio en euros: se usa este)</small></label>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            <input id="impPrice" type="number" min="0" step="0.01" placeholder="Precio de venta por defecto (€)" style="flex:1;min-width:180px">
-            <select id="impCat" style="flex:1;min-width:140px">
-              <option value="">Categoría: detectar por el nombre</option>
-              <option>Calzado</option><option>Ropa</option><option>Accesorios</option><option>Electrónica</option>
-            </select>
+
+        <!-- HTML pegado: en acordeón para no ocupar espacio -->
+        <details class="imp-advanced">
+          <summary>Pegar HTML de la página manualmente</summary>
+          <div style="margin-top:.5rem">
+            <p style="font-size:12px;color:var(--gray);margin-bottom:.4rem">Para webs que bloquean el servidor (ej. JD Sports): ábrela en tu navegador, pulsa Ctrl+U → Ctrl+A → Ctrl+C y pégalo aquí.</p>
+            <textarea id="impHtml" rows="3" placeholder="Pegar código fuente aquí..." style="width:100%;font-size:11px"></textarea>
           </div>
+        </details>
+
+        <div class="imp-btn">
+          <button class="btn" id="btnImport" onclick="startImport()">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Importar
+          </button>
         </div>
-        <div class="opts">
-          <label><input type="checkbox" id="optUnify" checked>
-            <span>Unificar fotos <small>Fondo blanco, 900×900, zapatilla centrada y con la punta hacia la derecha.</small></span></label>
-          <label><input type="checkbox" id="optBest">
-            <span>Marcar como más vendidos <small>Los productos que guardes saldrán arriba de la portada, en "Más vendidos". Útil con un link ordenado por popularidad (…/tienda/?orderby=popularity).</small></span></label>
-          <label><input type="checkbox" id="optColor" checked>
-            <span>Añadir el color al nombre <small>Detecta el color principal de la foto ("Ami Hoodie – Rojo") para distinguir las variantes. No se añade si el nombre ya lleva un color.</small></span></label>
-          <label><input type="checkbox" id="optFast" checked>
-            <span>Modo rápido <small>Si el fondo es liso y limpio recorta por color (unos 60 ms) y solo usa la IA en las fotos difíciles. Va 2 o 3 veces más rápido.</small></span></label>
-          <label><input type="checkbox" id="optAI" checked>
-            <span>Recorte con IA <small>Funciona en tu navegador (modelo de 4,5 MB, gratis). Sin él se recorta por el color del fondo, que falla con zapatillas blancas.</small></span></label>
-        </div>
-        <button class="btn" id="btnImport" onclick="startImport()">Extraer datos desde Cloudflare</button>
       </div>
 
       <div id="importArea" class="hidden">
         <div class="import-actions">
-          <b id="impSummary"></b>
-          <span id="impProgress" style="font-size:12px;color:var(--gray)"></span>
-          <span style="flex:1"></span>
-          <button class="btn ghost sm" id="btnHideDups" onclick="toggleHideDups()" title="Ocultar productos ya importados del listado">Ocultar ya importados</button>
-          <button class="btn ghost sm" id="btnImpRetry" onclick="retryFailed()">Reintentar fallidas</button>
-          <button class="btn ghost sm" id="btnImpCancel" onclick="cancelImport()">Cancelar proceso</button>
-          <button class="btn sm" id="btnImpSave" onclick="saveImport()">Guardar en la tienda</button>
+          <div class="imp-stats">
+            <b id="impSummary"></b>
+            <span id="impProgress"></span>
+          </div>
+          <div class="imp-btns">
+            <button class="btn ghost sm" id="btnHideDups" onclick="toggleHideDups()">Ocultar repetidos</button>
+            <button class="btn ghost sm" id="btnImpRetry" onclick="retryFailed()">Reintentar</button>
+            <button class="btn ghost sm" id="btnImpCancel" onclick="cancelImport()">Cancelar</button>
+            <button class="btn sm" id="btnImpSave" onclick="saveImport()">Guardar</button>
+          </div>
         </div>
         <div class="bar"><i id="impBar"></i></div>
         <div class="igrid" id="impGrid"></div>
@@ -1500,6 +1528,12 @@ async function scrapeCall(payload) {
   let data; try { data = JSON.parse(text); } catch { throw new Error('Respuesta inválida del servidor: ' + text.slice(0, 80)); }
   if (!res.ok || data.error) throw new Error(data.error || 'Error desconocido en el servidor');
   return data;
+}
+
+function impUrlChange() {
+  const url = $('importUrl').value;
+  const isYupoo = /yupoo\.com/i.test(url);
+  $('yupooOpts').classList.toggle('hidden', !isYupoo);
 }
 
 async function startImport() {
